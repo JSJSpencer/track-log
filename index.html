@@ -1,0 +1,1377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TRACK LOG — Training Database</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;600;700;900&family=Barlow:wght@300;400;500&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<!-- Supabase JS v2 -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --surface: #111111;
+    --surface2: #1a1a1a;
+    --border: #2a2a2a;
+    --accent: #e8ff00;
+    --accent2: #ff4d00;
+    --text: #f0f0f0;
+    --muted: #666;
+    --muted2: #444;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Barlow', sans-serif; font-weight: 300; min-height: 100vh; overflow-x: hidden; }
+
+  /* ── LOGIN SCREEN ── */
+  #loginScreen {
+    display: none;
+    position: fixed; inset: 0;
+    background: var(--bg);
+    align-items: center; justify-content: center;
+    z-index: 500;
+    flex-direction: column;
+    gap: 2rem;
+  }
+  #loginScreen.visible { display: flex; }
+  .login-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 3rem 2.5rem;
+    text-align: center;
+    max-width: 380px;
+    width: 100%;
+  }
+  .login-logo {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 900;
+    font-size: 2.5rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+  }
+  .login-logo span { color: var(--accent); }
+  .login-sub {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 2.5rem;
+  }
+  .google-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    width: 100%;
+    padding: 0.85rem 1.5rem;
+    background: #fff;
+    color: #333;
+    border: none;
+    border-radius: 2px;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 1rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .google-btn:hover { background: #f0f0f0; }
+  .google-btn svg { width: 20px; height: 20px; flex-shrink: 0; }
+  .login-note {
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.6;
+    margin-top: 1.5rem;
+  }
+  .config-warning {
+    background: rgba(255,77,0,0.1);
+    border: 1px solid rgba(255,77,0,0.3);
+    color: #ff9966;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.7rem;
+    padding: 1rem;
+    border-radius: 2px;
+    text-align: left;
+    line-height: 1.7;
+    margin-bottom: 1.5rem;
+    display: none;
+  }
+  .config-warning.visible { display: block; }
+
+  /* ── HEADER ── */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    display: flex; align-items: center; justify-content: space-between;
+    height: 64px;
+    position: sticky; top: 0;
+    background: rgba(10,10,10,0.95);
+    backdrop-filter: blur(10px);
+    z-index: 100;
+  }
+  .logo { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 1.5rem; letter-spacing: 0.15em; text-transform: uppercase; }
+  .logo span { color: var(--accent); }
+  .header-right { display: flex; gap: 0.75rem; align-items: center; }
+  .user-pill {
+    display: flex; align-items: center; gap: 0.5rem;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.65rem; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .user-avatar {
+    width: 26px; height: 26px; border-radius: 50%;
+    border: 1px solid var(--border);
+    object-fit: cover; background: var(--surface2);
+  }
+  .search-wrap { position: relative; flex: 1; max-width: 320px; margin: 0 1.5rem; }
+  .search-wrap input {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); font-family: 'Share Tech Mono', monospace; font-size: 0.8rem;
+    padding: 0.5rem 0.75rem 0.5rem 2.25rem; border-radius: 3px; outline: none;
+    transition: border-color 0.2s;
+  }
+  .search-wrap input:focus { border-color: var(--accent); }
+  .search-wrap input::placeholder { color: var(--muted); }
+  .search-icon { position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 0.85rem; }
+
+  /* ── BUTTONS ── */
+  .btn { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 0.85rem; letter-spacing: 0.1em; text-transform: uppercase; padding: 0.5rem 1.1rem; border: none; border-radius: 2px; cursor: pointer; transition: all 0.15s; }
+  .btn-primary { background: var(--accent); color: #000; }
+  .btn-primary:hover { background: #d4e800; transform: translateY(-1px); }
+  .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--muted); }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-danger { background: transparent; border: 1px solid #ff4d0040; color: var(--accent2); }
+  .btn-danger:hover { background: #ff4d0015; }
+
+  /* ── MAIN ── */
+  main { padding: 2rem; max-width: 1400px; margin: 0 auto; }
+
+  .stats-bar { display: flex; gap: 2rem; margin-bottom: 2.5rem; padding-bottom: 2rem; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  .stat { display: flex; flex-direction: column; gap: 0.15rem; }
+  .stat-num { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 2rem; line-height: 1; color: var(--accent); }
+  .stat-label { font-family: 'Share Tech Mono', monospace; font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; }
+
+  .filter-row { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 2rem; align-items: center; }
+  .filter-label { font-family: 'Share Tech Mono', monospace; font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-right: 0.25rem; }
+  .chip { font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; padding: 0.3rem 0.75rem; border: 1px solid var(--border); border-radius: 2px; background: transparent; color: var(--muted); cursor: pointer; transition: all 0.15s; }
+  .chip:hover { border-color: var(--accent); color: var(--accent); }
+  .chip.active { background: var(--accent); color: #000; border-color: var(--accent); }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.5px; }
+
+  /* ── CARD ── */
+  .card { background: var(--surface); position: relative; cursor: pointer; transition: transform 0.2s; overflow: hidden; }
+  .card::before { content: ''; position: absolute; top: 0; left: 0; width: 3px; height: 100%; background: var(--accent); transform: scaleY(0); transition: transform 0.2s; transform-origin: bottom; }
+  .card:hover::before { transform: scaleY(1); }
+  .card:hover { transform: translateY(-2px); }
+  .card-thumb { width: 100%; aspect-ratio: 16/9; background: var(--surface2); position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+  .card-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .card-thumb .play-icon { position: absolute; width: 48px; height: 48px; background: rgba(232,255,0,0.9); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; color: #000; opacity: 0; transition: opacity 0.2s; }
+  .card:hover .play-icon { opacity: 1; }
+  .thumb-placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.5rem; color: var(--muted2); font-family: 'Share Tech Mono', monospace; font-size: 0.7rem; }
+  .card-body { padding: 1rem 1.1rem 1.1rem; }
+  .card-event { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 1.1rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--accent); margin-bottom: 0.35rem; }
+  .card-date { font-family: 'Share Tech Mono', monospace; font-size: 0.65rem; color: var(--muted); letter-spacing: 0.05em; margin-bottom: 0.75rem; }
+  .card-notes { font-size: 0.82rem; color: #aaa; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 0.75rem; }
+  .card-tags { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .tag { font-family: 'Share Tech Mono', monospace; font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.08em; padding: 0.2rem 0.5rem; border: 1px solid var(--border); color: var(--muted); border-radius: 2px; }
+  .tag.coach { border-color: #0066ff40; color: #4d99ff; }
+  .tag.metrics { border-color: #ff4d0040; color: #ff7a4d; }
+
+  .empty-state { grid-column: 1/-1; text-align: center; padding: 6rem 2rem; }
+  .empty-state .big-num { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 8rem; line-height: 1; color: var(--surface2); margin-bottom: 1rem; }
+  .empty-state p { color: var(--muted); font-size: 0.9rem; margin-bottom: 1.5rem; }
+
+  /* ── MODALS ── */
+  .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 200; backdrop-filter: blur(4px); align-items: flex-start; justify-content: center; padding: 2rem 1rem; overflow-y: auto; }
+  .overlay.open { display: flex; }
+  .modal { background: var(--surface); border: 1px solid var(--border); width: 100%; max-width: 780px; position: relative; animation: slideUp 0.25s ease; }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  .modal-header { padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .modal-title { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 1.2rem; letter-spacing: 0.1em; text-transform: uppercase; }
+  .close-btn { background: none; border: none; color: var(--muted); font-size: 1.4rem; cursor: pointer; line-height: 1; padding: 0.25rem; transition: color 0.15s; }
+  .close-btn:hover { color: var(--text); }
+  .modal-body { padding: 1.5rem; }
+
+  /* ── FORM ── */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+  .form-group { display: flex; flex-direction: column; gap: 0.4rem; }
+  .form-group.full { grid-column: 1/-1; }
+  label { font-family: 'Share Tech Mono', monospace; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
+  input[type="text"], input[type="date"], input[type="number"], input[type="url"], textarea, select {
+    background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+    font-family: 'Barlow', sans-serif; font-size: 0.9rem; padding: 0.6rem 0.75rem;
+    border-radius: 2px; outline: none; transition: border-color 0.2s; width: 100%;
+  }
+  input:focus, textarea:focus, select:focus { border-color: var(--accent); }
+  textarea { resize: vertical; min-height: 80px; }
+
+  /* ── VIDEO UPLOAD ZONE ── */
+  .upload-zone {
+    border: 2px dashed var(--border);
+    border-radius: 4px;
+    padding: 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    position: relative;
+  }
+  .upload-zone:hover, .upload-zone.dragover { border-color: var(--accent); background: rgba(232,255,0,0.03); }
+  .upload-zone input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .upload-zone-inner { pointer-events: none; }
+  .upload-icon { font-size: 2rem; margin-bottom: 0.5rem; opacity: 0.5; }
+  .upload-text { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 1rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.25rem; }
+  .upload-sub { font-size: 0.72rem; color: var(--muted2); }
+  .upload-progress-wrap { background: var(--surface2); border: 1px solid var(--border); border-radius: 2px; padding: 0.75rem 1rem; }
+  .upload-progress-bar { height: 4px; background: var(--accent); border-radius: 2px; transition: width 0.2s; width: 0%; margin-bottom: 0.5rem; }
+  .upload-progress-label { font-family: 'Share Tech Mono', monospace; font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+  .uploaded-url-row { display: flex; align-items: center; justify-content: space-between; padding: 0.6rem 0.75rem; background: rgba(232,255,0,0.06); border: 1px solid rgba(232,255,0,0.2); border-radius: 2px; }
+  .uploaded-url-label { font-family: 'Share Tech Mono', monospace; font-size: 0.7rem; color: var(--accent); text-transform: uppercase; letter-spacing: 0.08em; }
+  .btn-replace { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 0.25rem 0.6rem; border-radius: 2px; cursor: pointer; transition: all 0.15s; }
+  .btn-replace:hover { border-color: var(--accent2); color: var(--accent2); }
+
+  /* ── VIDEO LINK INPUT ── */
+  .video-link-wrap { display: flex; flex-direction: column; gap: 0.6rem; }
+  .video-link-preview {
+    aspect-ratio: 16/9; background: #000; border-radius: 2px; overflow: hidden;
+    display: none; position: relative;
+  }
+  .video-link-preview.visible { display: block; }
+  .video-link-preview iframe { width: 100%; height: 100%; border: none; }
+  .video-link-preview video { width: 100%; height: 100%; object-fit: contain; }
+  .drive-hint {
+    font-family: 'Share Tech Mono', monospace; font-size: 0.65rem; color: var(--muted2);
+    line-height: 1.6; padding: 0.6rem 0.75rem; background: var(--surface2);
+    border: 1px solid var(--border); border-radius: 2px;
+  }
+  .drive-hint a { color: var(--accent); text-decoration: none; }
+
+  /* ── OPTIONAL SECTIONS ── */
+  .optional-toggle { display: flex; align-items: center; gap: 0.75rem; cursor: pointer; user-select: none; }
+  .optional-toggle input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+  .toggle-label { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 0.85rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); transition: color 0.15s; }
+  .optional-toggle:has(input:checked) .toggle-label { color: var(--accent); }
+  .optional-fields { display: none; padding-top: 0.75rem; }
+  .optional-fields.visible { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .divider { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
+
+  /* ── VIEW MODAL ── */
+  .view-modal { max-width: 900px; }
+  .view-video-wrap { width: 100%; aspect-ratio: 16/9; background: #000; position: relative; overflow: hidden; }
+  .view-video-wrap iframe, .view-video-wrap video { width: 100%; height: 100%; border: none; object-fit: contain; display: block; }
+  .view-meta { padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border); display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+  .view-event { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 1.8rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--accent); }
+  .view-date { font-family: 'Share Tech Mono', monospace; font-size: 0.7rem; color: var(--muted); margin-top: 0.25rem; }
+  .view-actions { display: flex; gap: 0.5rem; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
+  .frame-analysis-btn { display: flex; align-items: center; gap: 0.4rem; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 0.8rem; letter-spacing: 0.1em; text-transform: uppercase; background: rgba(232,255,0,0.08); border: 1px solid rgba(232,255,0,0.3); color: var(--accent); padding: 0.45rem 0.9rem; border-radius: 2px; cursor: pointer; transition: all 0.15s; }
+  .frame-analysis-btn:hover { background: rgba(232,255,0,0.15); }
+  .view-sections { padding: 1.5rem; display: flex; flex-direction: column; gap: 1.5rem; }
+  .section-block { display: flex; flex-direction: column; gap: 0.5rem; }
+  .section-title { font-family: 'Share Tech Mono', monospace; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); padding-bottom: 0.4rem; border-bottom: 1px solid var(--border); }
+  .section-content { font-size: 0.9rem; line-height: 1.7; color: #ccc; }
+  .metrics-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.75rem; }
+  .metric-item { background: var(--surface2); padding: 0.75rem 1rem; border-radius: 2px; border: 1px solid var(--border); }
+  .metric-name { font-family: 'Share Tech Mono', monospace; font-size: 0.6rem; text-transform: uppercase; color: var(--muted); margin-bottom: 0.25rem; }
+  .metric-val { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 1.1rem; color: var(--accent2); }
+
+  /* ── FRAME ANALYSIS ── */
+  #frameOverlay { display: none; position: fixed; inset: 0; background: #050505; z-index: 300; flex-direction: column; }
+  #frameOverlay.open { display: flex; }
+  .fa-header { display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1.25rem; border-bottom: 1px solid var(--border); flex-shrink: 0; gap: 1rem; flex-wrap: wrap; }
+  .fa-title { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 1rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--accent); }
+  .fa-toolbar { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+  .tool-sep { width: 1px; height: 24px; background: var(--border); margin: 0 0.25rem; }
+  .tool-btn { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; padding: 0.35rem 0.7rem; border-radius: 2px; border: 1px solid var(--border); background: var(--surface2); color: var(--muted); cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 0.3rem; }
+  .tool-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .tool-btn.active { background: var(--accent); color: #000; border-color: var(--accent); }
+  .tool-btn.danger { border-color: #ff4d0030; color: var(--accent2); }
+  .tool-btn.danger:hover { background: #ff4d0015; }
+  .color-swatch { width: 20px; height: 20px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; transition: transform 0.15s, border-color 0.15s; }
+  .color-swatch:hover { transform: scale(1.2); }
+  .color-swatch.active { border-color: #fff; transform: scale(1.15); }
+  .size-input { width: 48px; background: var(--surface2); border: 1px solid var(--border); color: var(--text); font-family: 'Share Tech Mono', monospace; font-size: 0.75rem; padding: 0.3rem 0.4rem; border-radius: 2px; outline: none; text-align: center; }
+  .size-input:focus { border-color: var(--accent); }
+  .fa-main { display: flex; flex: 1; overflow: hidden; min-height: 0; }
+  .fa-canvas-wrap { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .canvas-stage { flex: 1; display: flex; align-items: center; justify-content: center; background: #000; overflow: hidden; }
+  #frameCanvas { display: block; max-width: 100%; max-height: 100%; cursor: crosshair; touch-action: none; }
+  .fa-no-video { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; color: var(--muted); font-family: 'Share Tech Mono', monospace; font-size: 0.8rem; gap: 1rem; text-align: center; padding: 2rem; }
+  .fa-scrubber { padding: 0.75rem 1rem; border-top: 1px solid var(--border); background: var(--surface); display: flex; flex-direction: column; gap: 0.5rem; flex-shrink: 0; }
+  .scrub-row { display: flex; align-items: center; gap: 0.75rem; }
+  .scrub-time { font-family: 'Share Tech Mono', monospace; font-size: 0.7rem; color: var(--accent); min-width: 50px; text-align: center; }
+  #scrubRange { flex: 1; accent-color: var(--accent); cursor: pointer; height: 4px; }
+  .scrub-controls { display: flex; gap: 0.4rem; align-items: center; }
+  .scrub-btn { background: var(--surface2); border: 1px solid var(--border); color: var(--text); font-size: 0.85rem; padding: 0.3rem 0.6rem; border-radius: 2px; cursor: pointer; transition: all 0.15s; font-family: 'Share Tech Mono', monospace; }
+  .scrub-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .fa-sidebar { width: 300px; border-left: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0; }
+  .sidebar-header { padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); font-family: 'Share Tech Mono', monospace; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); display: flex; align-items: center; justify-content: space-between; }
+  .annotation-count { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 1rem; color: var(--accent); }
+  .new-annotation { padding: 1rem; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 0.6rem; }
+  .new-annotation textarea { min-height: 70px; font-size: 0.82rem; resize: none; }
+  .anno-form-label { font-family: 'Share Tech Mono', monospace; font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
+  .anno-timestamp { font-family: 'Share Tech Mono', monospace; font-size: 0.65rem; color: var(--accent); padding: 0.25rem 0; }
+  .annotation-list { flex: 1; overflow-y: auto; padding: 0.75rem; display: flex; flex-direction: column; gap: 0.75rem; }
+  .anno-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 2px; overflow: hidden; cursor: pointer; transition: border-color 0.15s; }
+  .anno-card:hover { border-color: var(--accent); }
+  .anno-thumb-wrap { position: relative; aspect-ratio: 16/9; overflow: hidden; background: #000; }
+  .anno-thumb { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .anno-ts-badge { position: absolute; bottom: 4px; left: 4px; background: rgba(0,0,0,0.8); color: var(--accent); font-family: 'Share Tech Mono', monospace; font-size: 0.6rem; padding: 2px 5px; border-radius: 2px; }
+  .anno-body { padding: 0.6rem 0.75rem; }
+  .anno-comment { font-size: 0.8rem; line-height: 1.5; color: #ccc; }
+  .anno-footer { display: flex; justify-content: flex-end; padding: 0.4rem 0.75rem; border-top: 1px solid var(--border); }
+  .anno-del-btn { font-family: 'Share Tech Mono', monospace; font-size: 0.6rem; text-transform: uppercase; background: none; border: none; color: var(--muted2); cursor: pointer; transition: color 0.15s; }
+  .anno-del-btn:hover { color: var(--accent2); }
+  .anno-empty { text-align: center; padding: 2rem 1rem; color: var(--muted); font-size: 0.8rem; line-height: 1.6; }
+
+  /* ── TOAST ── */
+  .toast { position: fixed; bottom: 2rem; right: 2rem; background: var(--accent); color: #000; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 0.85rem; letter-spacing: 0.08em; text-transform: uppercase; padding: 0.75rem 1.25rem; border-radius: 2px; z-index: 999; opacity: 0; transform: translateY(10px); transition: all 0.25s; pointer-events: none; }
+  .toast.show { opacity: 1; transform: translateY(0); }
+
+  mark { background: rgba(232,255,0,0.25); color: var(--accent); border-radius: 2px; padding: 0 2px; }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* ── LOADING ── */
+  .loading-overlay { position: fixed; inset: 0; background: var(--bg); z-index: 600; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 1rem; }
+  .loading-overlay.hidden { display: none; }
+  .loader { width: 32px; height: 32px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text { font-family: 'Share Tech Mono', monospace; font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; }
+
+  @media (max-width: 640px) {
+    header { padding: 0 1rem; }
+    .search-wrap { max-width: 160px; margin: 0 0.5rem; }
+    main { padding: 1.25rem; }
+    .form-grid { grid-template-columns: 1fr; }
+    .optional-fields.visible { grid-template-columns: 1fr; }
+    .stats-bar { gap: 1.25rem; }
+    .stat-num { font-size: 1.5rem; }
+    .fa-sidebar { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Loading -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loader"></div>
+  <div class="loading-text">Loading TrackLog...</div>
+</div>
+
+<!-- Login Screen -->
+<div id="loginScreen">
+  <div class="login-box">
+    <div class="login-logo">Track<span>Log</span></div>
+    <div class="login-sub">Training Database</div>
+    <div class="config-warning" id="configWarning">
+      ⚠ Supabase not configured.<br>
+      Open index.html and set your<br>
+      SUPABASE_URL and SUPABASE_ANON_KEY<br>
+      at the top of the script section.
+    </div>
+    <button class="google-btn" id="googleSignIn">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+      Sign in with Google
+    </button>
+    <div class="login-note">Your data is private to your account.<br>Videos stay in your own Google Drive.</div>
+  </div>
+</div>
+
+<!-- App -->
+<header id="appHeader" style="display:none">
+  <div class="logo">Track<span>Log</span></div>
+  <div class="search-wrap">
+    <span class="search-icon">⌕</span>
+    <input type="text" id="searchInput" placeholder="Search sessions, notes, annotations..." autocomplete="off">
+  </div>
+  <div class="header-right">
+    <div class="user-pill">
+      <img class="user-avatar" id="userAvatar" src="" alt="">
+      <span id="userName"></span>
+    </div>
+    <button class="btn btn-ghost" id="signOutBtn">Sign Out</button>
+    <button class="btn btn-primary" id="addBtn">+ Log Session</button>
+  </div>
+</header>
+
+<main id="appMain" style="display:none">
+  <div class="stats-bar">
+    <div class="stat"><div class="stat-num" id="statTotal">0</div><div class="stat-label">Sessions</div></div>
+    <div class="stat"><div class="stat-num" id="statEvents">0</div><div class="stat-label">Event Types</div></div>
+    <div class="stat"><div class="stat-num" id="statCoach">0</div><div class="stat-label">Coach Notes</div></div>
+    <div class="stat"><div class="stat-num" id="statMetrics">0</div><div class="stat-label">With Metrics</div></div>
+  </div>
+  <div class="filter-row">
+    <span class="filter-label">Filter:</span>
+    <button class="chip active" data-filter="all">All</button>
+    <div id="filterChips"></div>
+  </div>
+  <div class="grid" id="grid">
+    <div class="empty-state">
+      <div class="big-num">00</div>
+      <p>No sessions yet. Hit <strong>+ Log Session</strong> to start.</p>
+      <button class="btn btn-primary" id="emptyAddBtn">+ Log First Session</button>
+    </div>
+  </div>
+</main>
+
+<!-- ADD/EDIT MODAL -->
+<div class="overlay" id="addOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modalTitle">Log Training Session</span>
+      <button class="close-btn" id="closeAdd">×</button>
+    </div>
+    <div class="modal-body">
+
+      <!-- VIDEO UPLOAD -->
+      <div class="form-group full" style="margin-bottom:1.25rem">
+        <label>Training Video</label>
+        <div class="video-link-wrap">
+          <!-- Upload zone -->
+          <div class="upload-zone" id="uploadZone">
+            <input type="file" id="videoFile" accept="video/*">
+            <div class="upload-zone-inner">
+              <div class="upload-icon">🎥</div>
+              <div class="upload-text" id="uploadText">Drop video or click to upload</div>
+              <div class="upload-sub" id="uploadSub">MP4, MOV, WebM — stored in Cloudflare R2</div>
+            </div>
+          </div>
+          <!-- Progress bar -->
+          <div class="upload-progress-wrap" id="uploadProgressWrap" style="display:none">
+            <div class="upload-progress-bar" id="uploadProgressBar"></div>
+            <div class="upload-progress-label" id="uploadProgressLabel">Uploading...</div>
+          </div>
+          <!-- Existing/uploaded URL display -->
+          <div class="uploaded-url-row" id="uploadedUrlRow" style="display:none">
+            <span class="uploaded-url-label">✓ Video stored</span>
+            <button type="button" class="btn-replace" id="replaceVideoBtn">Replace</button>
+          </div>
+          <!-- Manual URL fallback -->
+          <details style="margin-top:0.5rem">
+            <summary style="font-family:'Share Tech Mono',monospace;font-size:0.65rem;color:var(--muted);cursor:pointer;text-transform:uppercase;letter-spacing:0.08em">Or paste a URL (YouTube, Drive, Dropbox...)</summary>
+            <div style="margin-top:0.5rem">
+              <input type="url" id="videoUrl" placeholder="https://...">
+              <div class="drive-hint" style="margin-top:0.4rem">
+                Google Drive: Share → "Anyone with link" → Copy.<br>
+                Dropbox: change <code>?dl=0</code> to <code>?dl=1</code> for frame scrubbing.
+              </div>
+            </div>
+          </details>
+          <div class="video-link-preview" id="videoPreviewWrap"></div>
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <div class="form-group full">
+          <label>Event / Drill Type <span style="color:var(--accent)">*</span></label>
+          <input type="text" id="eventType" placeholder="e.g. 400m, Hurdles, Block Start, Tempo Run...">
+        </div>
+        <div class="form-group">
+          <label>Date</label>
+          <input type="date" id="sessionDate">
+        </div>
+        <div class="form-group">
+          <label>Title / Short Description</label>
+          <input type="text" id="sessionTitle" placeholder="Optional short title">
+        </div>
+        <div class="form-group full">
+          <label>Personal Notes / Cues</label>
+          <textarea id="personalNotes" placeholder="How did it feel? What were you working on? Any cues or takeaways..."></textarea>
+        </div>
+      </div>
+
+      <hr class="divider">
+
+      <div class="form-group full" style="margin-bottom:0.75rem">
+        <label class="optional-toggle"><input type="checkbox" id="enableCoach"><span class="toggle-label">Coach Feedback</span></label>
+        <div class="optional-fields" id="coachFields">
+          <div class="form-group full" style="grid-column:1/-1">
+            <label>Coach's Notes</label>
+            <textarea id="coachNotes" placeholder="What did your coach say?"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <hr class="divider">
+
+      <div class="form-group full" style="margin-bottom:0.75rem">
+        <label class="optional-toggle"><input type="checkbox" id="enableMetrics"><span class="toggle-label">Performance Metrics</span></label>
+        <div class="optional-fields" id="metricsFields">
+          <div class="form-group"><label>Time / Split (s)</label><input type="number" id="metricTime" placeholder="e.g. 52.4" step="0.01"></div>
+          <div class="form-group"><label>Heart Rate (bpm)</label><input type="number" id="metricHR" placeholder="e.g. 172"></div>
+          <div class="form-group"><label>Distance (m)</label><input type="number" id="metricDist" placeholder="e.g. 400"></div>
+          <div class="form-group"><label>RPE (1–10)</label><input type="number" id="metricRPE" placeholder="e.g. 8" min="1" max="10"></div>
+          <div class="form-group full" style="grid-column:1/-1"><label>Additional Metrics</label><input type="text" id="metricExtra" placeholder="e.g. Wind: +1.2m/s, Reaction: 0.145s"></div>
+        </div>
+      </div>
+
+      <hr class="divider">
+      <div style="display:flex;gap:0.75rem;justify-content:flex-end;">
+        <button class="btn btn-ghost" id="cancelBtn">Cancel</button>
+        <button class="btn btn-primary" id="saveBtn">Save Session</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- VIEW MODAL -->
+<div class="overlay" id="viewOverlay">
+  <div class="modal view-modal">
+    <div class="modal-header">
+      <span class="modal-title">Session Review</span>
+      <button class="close-btn" id="closeView">×</button>
+    </div>
+    <div class="view-video-wrap" id="viewVideoWrap"></div>
+    <div class="view-meta">
+      <div>
+        <div class="view-event" id="viewEvent"></div>
+        <div class="view-date" id="viewDate"></div>
+      </div>
+      <div class="view-actions">
+        <button class="frame-analysis-btn" id="analyzeBtn">⬡ Frame Analysis</button>
+        <button class="btn btn-ghost" id="editBtn">Edit</button>
+        <button class="btn btn-danger" id="deleteBtn">Delete</button>
+      </div>
+    </div>
+    <div class="view-sections" id="viewSections"></div>
+  </div>
+</div>
+
+<!-- FRAME ANALYSIS OVERLAY -->
+<div id="frameOverlay">
+  <div class="fa-header">
+    <span class="fa-title">⬡ Frame Analysis</span>
+    <div class="fa-toolbar">
+      <button class="tool-btn active" id="toolDraw">✏ Draw</button>
+      <button class="tool-btn" id="toolLine">╱ Line</button>
+      <button class="tool-btn" id="toolArrow">→ Arrow</button>
+      <button class="tool-btn" id="toolRect">▭ Rect</button>
+      <button class="tool-btn" id="toolEllipse">◯ Ellipse</button>
+      <button class="tool-btn" id="toolText">T Text</button>
+      <div class="tool-sep"></div>
+      <div class="color-swatch active" data-color="#e8ff00" style="background:#e8ff00"></div>
+      <div class="color-swatch" data-color="#ff4d00" style="background:#ff4d00"></div>
+      <div class="color-swatch" data-color="#00cfff" style="background:#00cfff"></div>
+      <div class="color-swatch" data-color="#ff3366" style="background:#ff3366"></div>
+      <div class="color-swatch" data-color="#ffffff" style="background:#ffffff"></div>
+      <div class="tool-sep"></div>
+      <span style="font-family:'Share Tech Mono',monospace;font-size:0.65rem;color:var(--muted)">px</span>
+      <input class="size-input" type="number" id="brushSize" value="3" min="1" max="20">
+      <div class="tool-sep"></div>
+      <button class="tool-btn danger" id="clearCanvas">✕ Clear</button>
+      <button class="tool-btn" id="undoCanvas">↩ Undo</button>
+      <button class="tool-btn active" id="captureFrame" style="background:var(--accent);color:#000;border-color:var(--accent)">↓ Save</button>
+      <button class="tool-btn" id="closeFrameAnalysis" style="margin-left:0.5rem">✕ Close</button>
+    </div>
+  </div>
+  <div class="fa-main">
+    <div class="fa-canvas-wrap">
+      <div class="canvas-stage" id="canvasStage">
+        <canvas id="frameCanvas"></canvas>
+        <div class="fa-no-video" id="faNoVideo" style="display:none">
+          <div style="font-size:2rem;opacity:0.3">⬡</div>
+          <div>No embeddable video for this session.</div>
+          <div style="color:var(--muted2);font-size:0.7rem;margin-top:0.5rem">Frame analysis works with direct video files.<br>Google Drive links may not support frame scrubbing.</div>
+        </div>
+      </div>
+      <div class="fa-scrubber" id="faScrubber">
+        <div class="scrub-row">
+          <div class="scrub-controls">
+            <button class="scrub-btn" id="scrubBack10">«</button>
+            <button class="scrub-btn" id="scrubBack1">‹</button>
+            <button class="scrub-btn" id="scrubFwd1">›</button>
+            <button class="scrub-btn" id="scrubFwd10">»</button>
+          </div>
+          <input type="range" id="scrubRange" min="0" max="100" step="0.01" value="0">
+          <div class="scrub-time" id="scrubTime">0.00s</div>
+        </div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:0.6rem;color:var(--muted);text-align:center">
+          Scrub to frame · Arrow keys for fine control · Draw · Save Annotation
+        </div>
+      </div>
+    </div>
+    <div class="fa-sidebar">
+      <div class="sidebar-header">
+        <span>Frame Annotations</span>
+        <span class="annotation-count" id="annoCount">0</span>
+      </div>
+      <div class="new-annotation">
+        <div class="anno-form-label">Comment for current frame</div>
+        <div class="anno-timestamp" id="currentFrameTime">Frame @ 0.00s</div>
+        <textarea id="annoComment" placeholder="Technique note, correction, cue..."></textarea>
+        <button class="btn btn-primary" id="saveAnnotation" style="width:100%">Save Annotation</button>
+      </div>
+      <div class="annotation-list" id="annotationList">
+        <div class="anno-empty">No annotations yet.<br>Scrub to a frame, draw, then save.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════
+// ⚙️  CONFIGURATION — FILL THESE IN
+// ══════════════════════════════════════════
+const SUPABASE_URL      = 'YOUR_SUPABASE_URL';
+const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+const WORKER_URL        = 'YOUR_WORKER_URL';   // e.g. https://tracklog-upload.yourname.workers.dev
+const UPLOAD_SECRET     = 'YOUR_UPLOAD_SECRET'; // must match worker env var
+// ══════════════════════════════════════════
+
+const CONFIGURED = SUPABASE_URL !== 'YOUR_SUPABASE_URL' && SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY';
+
+let supabase, currentUser;
+
+if (CONFIGURED) {
+  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}
+
+// ── State ──
+let sessions = [];
+let currentFilter = 'all';
+let currentSearch = '';
+let editingId = null;
+let viewingId = null;
+let pendingUploadUrl = null; // URL returned from R2 after upload
+
+// ── Helpers ──
+function showToast(msg, err) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = err ? 'var(--accent2)' : 'var(--accent)';
+  t.style.color = err ? '#fff' : '#000';
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function highlight(text, q) {
+  if (!q || !text) return text || '';
+  return text.replace(new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, 'gi'), '<mark>$1</mark>');
+}
+
+function formatDate(d) {
+  if (!d) return '';
+  return new Date(d + 'T12:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+// ── Video URL utilities ──
+function getEmbedInfo(url) {
+  if (!url) return null;
+  // Google Drive
+  const driveMatch = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
+  if (driveMatch) return { type: 'gdrive', fileId: driveMatch[1], embed: `https://drive.google.com/file/d/${driveMatch[1]}/preview` };
+  // YouTube
+  const ytMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&?/]+)/);
+  if (ytMatch) return { type: 'youtube', embed: `https://www.youtube.com/embed/${ytMatch[1]}` };
+  // Direct video
+  if (/\.(mp4|mov|webm|m4v)(\?|$)/i.test(url)) return { type: 'direct', embed: url };
+  return { type: 'unknown', embed: url };
+}
+
+function buildVideoEmbed(url, forView) {
+  const info = getEmbedInfo(url);
+  if (!info) return '';
+  if (info.type === 'direct') {
+    return `<video src="${info.embed}" controls ${forView ? '' : 'style="max-height:200px"'}></video>`;
+  }
+  return `<iframe src="${info.embed}" allowfullscreen allow="autoplay"></iframe>`;
+}
+
+function buildThumbHTML(s) {
+  if (s.video_url) {
+    const info = getEmbedInfo(s.video_url);
+    if (info?.type === 'youtube') {
+      const ytId = s.video_url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&?/]+)/)?.[1];
+      return `<img src="https://img.youtube.com/vi/${ytId}/mqdefault.jpg" alt="thumb"><div class="play-icon">▶</div>`;
+    }
+    return `<div class="thumb-placeholder"><svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg><span>VIDEO LINKED</span></div><div class="play-icon">▶</div>`;
+  }
+  return `<div class="thumb-placeholder"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M10 9l5 3-5 3V9z"/></svg><span>NO VIDEO</span></div>`;
+}
+
+// ── Auth ──
+async function initAuth() {
+  if (!CONFIGURED) {
+    document.getElementById('loadingOverlay').classList.add('hidden');
+    document.getElementById('configWarning').classList.add('visible');
+    document.getElementById('loginScreen').classList.add('visible');
+    return;
+  }
+
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session) {
+    currentUser = session.user;
+    showApp();
+  } else {
+    document.getElementById('loadingOverlay').classList.add('hidden');
+    document.getElementById('loginScreen').classList.add('visible');
+  }
+
+  supabase.auth.onAuthStateChange((_event, session) => {
+    if (session) { currentUser = session.user; showApp(); }
+    else { currentUser = null; showLogin(); }
+  });
+}
+
+async function signInWithGoogle() {
+  if (!CONFIGURED) return;
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: window.location.href }
+  });
+  if (error) showToast('Sign-in error: ' + error.message, true);
+}
+
+async function signOut() {
+  await supabase.auth.signOut();
+}
+
+function showApp() {
+  document.getElementById('loadingOverlay').classList.add('hidden');
+  document.getElementById('loginScreen').classList.remove('visible');
+  document.getElementById('appHeader').style.display = '';
+  document.getElementById('appMain').style.display = '';
+  // User info
+  const meta = currentUser?.user_metadata || {};
+  document.getElementById('userName').textContent = (meta.full_name || meta.name || currentUser.email || '').split(' ')[0];
+  if (meta.avatar_url || meta.picture) document.getElementById('userAvatar').src = meta.avatar_url || meta.picture;
+  render();
+}
+
+function showLogin() {
+  document.getElementById('appHeader').style.display = 'none';
+  document.getElementById('appMain').style.display = 'none';
+  document.getElementById('loginScreen').classList.add('visible');
+}
+
+// ── Supabase DB ──
+async function dbAll() {
+  if (!supabase || !currentUser) return [];
+  const { data, error } = await supabase
+    .from('sessions')
+    .select('*')
+    .eq('user_id', currentUser.id)
+    .order('session_date', { ascending: false });
+  if (error) { showToast('Load error: ' + error.message, true); return []; }
+  return data || [];
+}
+
+async function dbUpsert(session) {
+  const { error } = await supabase.from('sessions').upsert(session);
+  if (error) throw error;
+}
+
+async function dbDelete(id) {
+  const { error } = await supabase.from('sessions').delete().eq('id', id).eq('user_id', currentUser.id);
+  if (error) throw error;
+}
+
+// ── Render ──
+async function render() {
+  sessions = await dbAll();
+  updateStats();
+  updateFilters();
+  const q = currentSearch.toLowerCase();
+  let filtered = sessions.filter(s => {
+    if (currentFilter !== 'all' && s.event_type !== currentFilter) return false;
+    if (!q) return true;
+    const annos = (s.frame_annotations || []).map(a => a.comment).join(' ');
+    return [s.event_type, s.title, s.personal_notes, s.coach_notes, s.metric_extra, annos]
+      .some(f => f && f.toLowerCase().includes(q));
+  });
+  const grid = document.getElementById('grid');
+  if (!filtered.length) {
+    grid.innerHTML = `<div class="empty-state">
+      <div class="big-num">${sessions.length === 0 ? '00' : '∅'}</div>
+      <p>${sessions.length === 0 ? 'No sessions yet. Hit <strong>+ Log Session</strong> to start.' : 'No sessions match your search.'}</p>
+      ${sessions.length === 0 ? '<button class="btn btn-primary" id="emptyAddBtn">+ Log First Session</button>' : ''}
+    </div>`;
+    document.getElementById('emptyAddBtn')?.addEventListener('click', openAdd);
+    return;
+  }
+  grid.innerHTML = filtered.map(s => cardHTML(s, q)).join('');
+  grid.querySelectorAll('.card').forEach(el => el.addEventListener('click', () => openView(el.dataset.id)));
+}
+
+function cardHTML(s, q) {
+  const tags = [];
+  if (s.coach_notes) tags.push(`<span class="tag coach">Coach Notes</span>`);
+  if (s.metric_time || s.metric_hr || s.metric_dist || s.metric_rpe || s.metric_extra) tags.push(`<span class="tag metrics">Metrics</span>`);
+  if (s.frame_annotations?.length) tags.push(`<span class="tag" style="border-color:#e8ff0040;color:var(--accent)">⬡ ${s.frame_annotations.length} Frame${s.frame_annotations.length > 1 ? 's' : ''}</span>`);
+  if (s.video_url) tags.push(`<span class="tag" style="border-color:#ffffff20;color:var(--muted)">▶ Video</span>`);
+  const notes = s.personal_notes || s.coach_notes || '';
+  return `<div class="card" data-id="${s.id}">
+    <div class="card-thumb">${buildThumbHTML(s)}</div>
+    <div class="card-body">
+      <div class="card-event">${highlight(s.event_type || 'Unlabeled', q)}</div>
+      <div class="card-date">${s.session_date ? formatDate(s.session_date) : 'No date'}${s.title ? ' · ' + highlight(s.title, q) : ''}</div>
+      ${notes ? `<div class="card-notes">${highlight(notes.substring(0,200), q)}</div>` : ''}
+      ${tags.length ? `<div class="card-tags">${tags.join('')}</div>` : ''}
+    </div>
+  </div>`;
+}
+
+function updateStats() {
+  document.getElementById('statTotal').textContent = sessions.length;
+  document.getElementById('statEvents').textContent = new Set(sessions.map(s => s.event_type).filter(Boolean)).size;
+  document.getElementById('statCoach').textContent = sessions.filter(s => s.coach_notes).length;
+  document.getElementById('statMetrics').textContent = sessions.filter(s => s.metric_time || s.metric_hr || s.metric_dist || s.metric_rpe || s.metric_extra).length;
+}
+
+function updateFilters() {
+  const events = [...new Set(sessions.map(s => s.event_type).filter(Boolean))].sort();
+  const container = document.getElementById('filterChips');
+  container.innerHTML = events.map(e => `<button class="chip${currentFilter === e ? ' active' : ''}" data-filter="${e}">${e}</button>`).join('');
+  container.querySelectorAll('.chip').forEach(c => c.addEventListener('click', () => {
+    currentFilter = c.dataset.filter;
+    document.querySelectorAll('.chip').forEach(x => x.classList.remove('active'));
+    c.classList.add('active');
+    render();
+  }));
+  document.querySelector('.chip[data-filter="all"]').classList.toggle('active', currentFilter === 'all');
+}
+
+// ── Add/Edit ──
+function openAdd() {
+  editingId = null; clearForm();
+  document.getElementById('modalTitle').textContent = 'Log Training Session';
+  document.getElementById('sessionDate').value = new Date().toISOString().split('T')[0];
+  document.getElementById('addOverlay').classList.add('open');
+}
+
+function clearForm() {
+  ['eventType','sessionTitle','sessionDate','personalNotes','coachNotes','videoUrl',
+   'metricTime','metricHR','metricDist','metricRPE','metricExtra'].forEach(id => { document.getElementById(id).value = ''; });
+  document.getElementById('enableCoach').checked = false;
+  document.getElementById('enableMetrics').checked = false;
+  document.getElementById('coachFields').classList.remove('visible');
+  document.getElementById('metricsFields').classList.remove('visible');
+  document.getElementById('videoPreviewWrap').classList.remove('visible');
+  document.getElementById('videoPreviewWrap').innerHTML = '';
+  resetUploadZone();
+  pendingUploadUrl = null;
+}
+
+function closeAdd() { document.getElementById('addOverlay').classList.remove('open'); }
+
+async function saveSession() {
+  const eventType = document.getElementById('eventType').value.trim();
+  if (!eventType) { showToast('Event / Drill Type is required'); return; }
+  const btn = document.getElementById('saveBtn');
+  btn.textContent = 'Saving...'; btn.disabled = true;
+  try {
+    const session = {
+    const videoUrl = pendingUploadUrl || document.getElementById('videoUrl').value.trim() || null;
+    const session = {
+      user_id: currentUser.id,
+      event_type: eventType,
+      title: document.getElementById('sessionTitle').value.trim(),
+      session_date: document.getElementById('sessionDate').value || null,
+      personal_notes: document.getElementById('personalNotes').value.trim(),
+      video_url: videoUrl,
+      coach_notes: document.getElementById('enableCoach').checked ? document.getElementById('coachNotes').value.trim() : null,
+      metric_time: document.getElementById('enableMetrics').checked ? document.getElementById('metricTime').value || null : null,
+      metric_hr: document.getElementById('enableMetrics').checked ? document.getElementById('metricHR').value || null : null,
+      metric_dist: document.getElementById('enableMetrics').checked ? document.getElementById('metricDist').value || null : null,
+      metric_rpe: document.getElementById('enableMetrics').checked ? document.getElementById('metricRPE').value || null : null,
+      metric_extra: document.getElementById('enableMetrics').checked ? document.getElementById('metricExtra').value.trim() || null : null,
+    };
+    if (editingId) {
+      session.id = editingId;
+      const existing = sessions.find(s => s.id === editingId);
+      if (existing) session.frame_annotations = existing.frame_annotations || [];
+    }
+    await dbUpsert(session);
+    closeAdd();
+    await render();
+    showToast(editingId ? 'Session updated ✓' : 'Session logged ✓');
+  } catch(e) {
+    showToast('Save failed: ' + e.message, true);
+  } finally {
+    btn.textContent = 'Save Session'; btn.disabled = false;
+  }
+}
+
+// ── View ──
+async function openView(id) {
+  viewingId = id;
+  const s = sessions.find(x => x.id === id);
+  if (!s) return;
+
+  document.getElementById('viewEvent').textContent = s.event_type || 'Unlabeled';
+  document.getElementById('viewDate').textContent = (s.session_date ? formatDate(s.session_date) : 'No date') + (s.title ? ' · ' + s.title : '');
+
+  // Video
+  const wrap = document.getElementById('viewVideoWrap');
+  if (s.video_url) {
+    wrap.innerHTML = buildVideoEmbed(s.video_url, true);
+    wrap.style.display = '';
+  } else {
+    wrap.innerHTML = '';
+    wrap.style.display = 'none';
+  }
+
+  // Sections
+  let html = '';
+  if (s.personal_notes) html += section('Personal Notes / Cues', s.personal_notes.replace(/\n/g,'<br>'));
+  if (s.coach_notes) html += section('Coach Feedback', s.coach_notes.replace(/\n/g,'<br>'));
+  const hasM = s.metric_time || s.metric_hr || s.metric_dist || s.metric_rpe || s.metric_extra;
+  if (hasM) {
+    let mg = '<div class="metrics-grid">';
+    if (s.metric_time) mg += metricItem('Time', s.metric_time + 's');
+    if (s.metric_hr) mg += metricItem('Heart Rate', s.metric_hr + ' bpm');
+    if (s.metric_dist) mg += metricItem('Distance', s.metric_dist + 'm');
+    if (s.metric_rpe) mg += metricItem('RPE', s.metric_rpe + '/10');
+    if (s.metric_extra) mg += metricItem('Additional', s.metric_extra);
+    mg += '</div>';
+    html += section('Performance Metrics', mg, false);
+  }
+  if (s.frame_annotations?.length) {
+    const annoHTML = s.frame_annotations.map(a => `
+      <div style="display:flex;gap:1rem;align-items:flex-start;background:var(--surface2);border:1px solid var(--border);border-radius:2px;overflow:hidden">
+        <img src="${a.imageDataURL}" style="width:180px;flex-shrink:0;object-fit:cover" alt="frame">
+        <div style="padding:0.75rem;flex:1;min-width:0">
+          <div style="font-family:'Share Tech Mono',monospace;font-size:0.65rem;color:var(--accent);margin-bottom:0.4rem">@ ${a.time?.toFixed(2) ?? '?'}s</div>
+          <div style="font-size:0.85rem;color:#ccc;line-height:1.6">${a.comment ? a.comment.replace(/\n/g,'<br>') : '<span style="color:var(--muted)">No comment</span>'}</div>
+        </div>
+      </div>`).join('');
+    html += `<div class="section-block"><div class="section-title" style="color:var(--accent)">⬡ Frame Annotations (${s.frame_annotations.length})</div><div style="display:flex;flex-direction:column;gap:1rem;margin-top:0.5rem">${annoHTML}</div></div>`;
+  }
+  if (!html) html = `<p style="color:var(--muted);font-size:0.85rem">No notes recorded for this session.</p>`;
+  document.getElementById('viewSections').innerHTML = html;
+  document.getElementById('viewOverlay').classList.add('open');
+}
+
+function section(title, content, isText=true) {
+  return `<div class="section-block"><div class="section-title">${title}</div><div class="${isText ? 'section-content' : ''}">${content}</div></div>`;
+}
+function metricItem(name, val) {
+  return `<div class="metric-item"><div class="metric-name">${name}</div><div class="metric-val">${val}</div></div>`;
+}
+
+function closeView() { document.getElementById('viewOverlay').classList.remove('open'); viewingId = null; }
+
+async function deleteSession() {
+  if (!viewingId) return;
+  if (!confirm('Delete this session? Cannot be undone.')) return;
+  try { await dbDelete(viewingId); closeView(); await render(); showToast('Session deleted'); }
+  catch(e) { showToast('Delete failed: ' + e.message, true); }
+}
+
+function openEdit() {
+  const s = sessions.find(x => x.id === viewingId);
+  if (!s) return;
+  closeView(); editingId = s.id;
+  document.getElementById('modalTitle').textContent = 'Edit Session';
+  clearForm();
+  document.getElementById('eventType').value = s.event_type || '';
+  document.getElementById('sessionTitle').value = s.title || '';
+  document.getElementById('sessionDate').value = s.session_date || '';
+  document.getElementById('personalNotes').value = s.personal_notes || '';
+  if (s.video_url) {
+    const info = getEmbedInfo(s.video_url);
+    if (info?.type === 'direct') {
+      pendingUploadUrl = s.video_url;
+      document.getElementById('uploadZone').style.display = 'none';
+      document.getElementById('uploadedUrlRow').style.display = 'flex';
+    } else {
+      document.getElementById('videoUrl').value = s.video_url;
+      previewVideoUrl(s.video_url);
+    }
+  }
+  if (s.coach_notes) { document.getElementById('enableCoach').checked = true; document.getElementById('coachFields').classList.add('visible'); document.getElementById('coachNotes').value = s.coach_notes; }
+  if (s.metric_time || s.metric_hr || s.metric_dist || s.metric_rpe || s.metric_extra) {
+    document.getElementById('enableMetrics').checked = true; document.getElementById('metricsFields').classList.add('visible');
+    document.getElementById('metricTime').value = s.metric_time || '';
+    document.getElementById('metricHR').value = s.metric_hr || '';
+    document.getElementById('metricDist').value = s.metric_dist || '';
+    document.getElementById('metricRPE').value = s.metric_rpe || '';
+    document.getElementById('metricExtra').value = s.metric_extra || '';
+  }
+  document.getElementById('addOverlay').classList.add('open');
+}
+
+// ── Video URL preview ──
+function previewVideoUrl(url) {
+  const wrap = document.getElementById('videoPreviewWrap');
+  if (!url) { wrap.classList.remove('visible'); wrap.innerHTML = ''; return; }
+  const html = buildVideoEmbed(url, false);
+  if (html) { wrap.innerHTML = html; wrap.classList.add('visible'); }
+}
+
+document.getElementById('videoUrl').addEventListener('change', e => previewVideoUrl(e.target.value.trim()));
+
+// ── R2 Upload ──
+function resetUploadZone() {
+  document.getElementById('uploadZone').style.display = '';
+  document.getElementById('uploadProgressWrap').style.display = 'none';
+  document.getElementById('uploadedUrlRow').style.display = 'none';
+  document.getElementById('uploadText').textContent = 'Drop video or click to upload';
+  document.getElementById('uploadSub').textContent = 'MP4, MOV, WebM — stored in Cloudflare R2';
+  document.getElementById('uploadProgressBar').style.width = '0%';
+  document.getElementById('videoFile').value = '';
+}
+
+function setUploadProgress(pct, label) {
+  document.getElementById('uploadProgressBar').style.width = pct + '%';
+  document.getElementById('uploadProgressLabel').textContent = label;
+}
+
+async function uploadVideoToR2(file) {
+  const workerConfigured = WORKER_URL !== 'YOUR_WORKER_URL' && UPLOAD_SECRET !== 'YOUR_UPLOAD_SECRET';
+  if (!workerConfigured) {
+    showToast('Worker not configured — using URL field only', true);
+    return null;
+  }
+
+  // Show progress
+  document.getElementById('uploadZone').style.display = 'none';
+  document.getElementById('uploadProgressWrap').style.display = '';
+  setUploadProgress(5, 'Preparing upload...');
+
+  try {
+    // Use XMLHttpRequest for real progress events
+    const url = await new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', WORKER_URL + '/upload');
+      xhr.setRequestHeader('X-Upload-Secret', UPLOAD_SECRET);
+      xhr.setRequestHeader('X-File-Name', file.name);
+      xhr.setRequestHeader('X-File-Type', file.type);
+      xhr.setRequestHeader('X-User-Id', currentUser?.id || 'unknown');
+      xhr.setRequestHeader('Content-Type', file.type);
+
+      xhr.upload.onprogress = e => {
+        if (e.lengthComputable) {
+          const pct = Math.round((e.loaded / e.total) * 90);
+          setUploadProgress(pct, `Uploading… ${(e.loaded / 1024 / 1024).toFixed(1)} / ${(e.total / 1024 / 1024).toFixed(1)} MB`);
+        }
+      };
+
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const data = JSON.parse(xhr.responseText);
+            resolve(data.url);
+          } catch(e) { reject(new Error('Invalid response from worker')); }
+        } else {
+          try {
+            const err = JSON.parse(xhr.responseText);
+            reject(new Error(err.error || 'Upload failed'));
+          } catch(e) { reject(new Error('Upload failed: HTTP ' + xhr.status)); }
+        }
+      };
+
+      xhr.onerror = () => reject(new Error('Network error during upload'));
+      xhr.send(file);
+    });
+
+    setUploadProgress(100, 'Upload complete ✓');
+    document.getElementById('uploadProgressWrap').style.display = 'none';
+    document.getElementById('uploadedUrlRow').style.display = 'flex';
+    return url;
+
+  } catch(err) {
+    resetUploadZone();
+    showToast('Upload failed: ' + err.message, true);
+    return null;
+  }
+}
+
+// File selected via input
+document.getElementById('videoFile').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  document.getElementById('uploadText').textContent = file.name;
+  document.getElementById('uploadSub').textContent = (file.size / 1024 / 1024).toFixed(1) + ' MB';
+  pendingUploadUrl = await uploadVideoToR2(file);
+});
+
+// Drag and drop
+const uploadZone = document.getElementById('uploadZone');
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('dragover'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
+uploadZone.addEventListener('drop', async e => {
+  e.preventDefault(); uploadZone.classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file && file.type.startsWith('video/')) {
+    document.getElementById('videoFile').files = e.dataTransfer.files;
+    document.getElementById('uploadText').textContent = file.name;
+    pendingUploadUrl = await uploadVideoToR2(file);
+  }
+});
+
+// Replace button
+document.getElementById('replaceVideoBtn').addEventListener('click', () => {
+  pendingUploadUrl = null;
+  resetUploadZone();
+});
+
+// ── Frame Analysis ──
+let faHiddenVideo = null;
+let faCtx = null;
+let faDrawing = false;
+let faTool = 'draw';
+let faColor = '#e8ff00';
+let faBrushSize = 3;
+let faStartX = 0, faStartY = 0;
+let faSnapshot = null;
+let faHistory = [];
+let faAnnotations = [];
+
+function openFrameAnalysis() {
+  const s = sessions.find(x => x.id === viewingId);
+  if (!s) return;
+  faAnnotations = s.frame_annotations ? [...s.frame_annotations] : [];
+
+  const canvas = document.getElementById('frameCanvas');
+  faCtx = canvas.getContext('2d');
+  faHistory = [];
+
+  // Try to load video if direct URL
+  const info = s.video_url ? getEmbedInfo(s.video_url) : null;
+  if (info?.type === 'direct') {
+    document.getElementById('faNoVideo').style.display = 'none';
+    canvas.style.display = 'block';
+    document.getElementById('faScrubber').style.display = '';
+    if (faHiddenVideo) { faHiddenVideo.src = ''; faHiddenVideo.remove(); }
+    faHiddenVideo = document.createElement('video');
+    faHiddenVideo.crossOrigin = 'anonymous';
+    faHiddenVideo.style.display = 'none';
+    faHiddenVideo.preload = 'auto';
+    document.body.appendChild(faHiddenVideo);
+    faHiddenVideo.src = s.video_url;
+    faHiddenVideo.addEventListener('loadedmetadata', () => {
+      document.getElementById('scrubRange').max = faHiddenVideo.duration;
+      document.getElementById('scrubRange').value = 0;
+      faHiddenVideo.currentTime = 0;
+    }, { once: true });
+    faHiddenVideo.addEventListener('seeked', drawVideoFrame);
+  } else {
+    // No direct video — still let them draw on a blank canvas with annotations
+    document.getElementById('faScrubber').style.display = 'none';
+    canvas.style.display = 'block';
+    document.getElementById('faNoVideo').style.display = 'none';
+    const stage = document.getElementById('canvasStage');
+    canvas.width = stage.clientWidth || 640;
+    canvas.height = Math.round(canvas.width * 9/16);
+    faCtx.fillStyle = '#111';
+    faCtx.fillRect(0, 0, canvas.width, canvas.height);
+    faCtx.fillStyle = 'var(--muted)';
+    faCtx.font = '14px Share Tech Mono';
+    faCtx.textAlign = 'center';
+    faCtx.fillText('No direct video — draw freely for diagram annotations', canvas.width/2, canvas.height/2);
+    pushHistory();
+  }
+
+  document.getElementById('frameOverlay').classList.add('open');
+  renderAnnotationList();
+  updateAnnoCount();
+}
+
+function closeFrameAnalysis() {
+  document.getElementById('frameOverlay').classList.remove('open');
+  if (faHiddenVideo) { faHiddenVideo.src = ''; faHiddenVideo.remove(); faHiddenVideo = null; }
+  faHistory = [];
+}
+
+function drawVideoFrame() {
+  if (!faHiddenVideo || !faCtx) return;
+  const stage = document.getElementById('canvasStage');
+  const sw = stage.clientWidth, sh = stage.clientHeight;
+  const vw = faHiddenVideo.videoWidth || sw, vh = faHiddenVideo.videoHeight || sh;
+  const scale = Math.min(sw / vw, sh / vh, 1);
+  const canvas = document.getElementById('frameCanvas');
+  canvas.width = Math.round(vw * scale);
+  canvas.height = Math.round(vh * scale);
+  faCtx.drawImage(faHiddenVideo, 0, 0, canvas.width, canvas.height);
+  faHistory = []; faSnapshot = null; pushHistory();
+  const t = faHiddenVideo.currentTime;
+  document.getElementById('scrubTime').textContent = t.toFixed(2) + 's';
+  document.getElementById('currentFrameTime').textContent = 'Frame @ ' + t.toFixed(2) + 's';
+}
+
+function pushHistory() {
+  if (!faCtx) return;
+  const c = document.getElementById('frameCanvas');
+  faHistory.push(faCtx.getImageData(0, 0, c.width, c.height));
+  if (faHistory.length > 40) faHistory.shift();
+}
+
+function undoDraw() {
+  if (faHistory.length > 1) { faHistory.pop(); const c = document.getElementById('frameCanvas'); faCtx.putImageData(faHistory[faHistory.length-1], 0, 0); }
+}
+
+function getPos(e) {
+  const canvas = document.getElementById('frameCanvas');
+  const rect = canvas.getBoundingClientRect();
+  const sx = canvas.width / rect.width, sy = canvas.height / rect.height;
+  const src = e.touches ? e.touches[0] : e;
+  return { x: (src.clientX - rect.left) * sx, y: (src.clientY - rect.top) * sy };
+}
+
+function canvasDown(e) {
+  e.preventDefault(); faDrawing = true;
+  const p = getPos(e); faStartX = p.x; faStartY = p.y;
+  if (faTool === 'text') {
+    const txt = prompt('Label:');
+    if (txt) {
+      faCtx.font = `bold ${Math.max(faBrushSize*5,14)}px "Barlow Condensed",sans-serif`;
+      faCtx.fillStyle = faColor; faCtx.fillText(txt, p.x, p.y); pushHistory();
+    }
+    faDrawing = false; return;
+  }
+  faSnapshot = faCtx.getImageData(0, 0, document.getElementById('frameCanvas').width, document.getElementById('frameCanvas').height);
+  if (faTool === 'draw') { faCtx.beginPath(); faCtx.moveTo(p.x, p.y); }
+}
+
+function canvasMove(e) {
+  if (!faDrawing) return; e.preventDefault();
+  const p = getPos(e);
+  faCtx.strokeStyle = faColor; faCtx.fillStyle = faColor;
+  faCtx.lineWidth = faBrushSize; faCtx.lineCap = 'round'; faCtx.lineJoin = 'round';
+  if (faTool === 'draw') { faCtx.lineTo(p.x, p.y); faCtx.stroke(); }
+  else {
+    const c = document.getElementById('frameCanvas');
+    faCtx.putImageData(faSnapshot, 0, 0); faCtx.beginPath();
+    if (faTool === 'line') { faCtx.moveTo(faStartX, faStartY); faCtx.lineTo(p.x, p.y); faCtx.stroke(); }
+    else if (faTool === 'arrow') { drawArrow(faStartX, faStartY, p.x, p.y); }
+    else if (faTool === 'rect') { faCtx.strokeRect(faStartX, faStartY, p.x-faStartX, p.y-faStartY); }
+    else if (faTool === 'ellipse') {
+      const cx=(faStartX+p.x)/2, cy=(faStartY+p.y)/2, rx=Math.abs(p.x-faStartX)/2, ry=Math.abs(p.y-faStartY)/2;
+      faCtx.ellipse(cx,cy,rx,ry,0,0,Math.PI*2); faCtx.stroke();
+    }
+  }
+}
+
+function canvasUp(e) { if (!faDrawing) return; faDrawing = false; if (faTool !== 'text') pushHistory(); }
+
+function drawArrow(x1,y1,x2,y2) {
+  const a=Math.atan2(y2-y1,x2-x1), h=Math.max(faBrushSize*4,12);
+  faCtx.moveTo(x1,y1); faCtx.lineTo(x2,y2); faCtx.stroke(); faCtx.beginPath();
+  faCtx.moveTo(x2,y2); faCtx.lineTo(x2-h*Math.cos(a-Math.PI/6),y2-h*Math.sin(a-Math.PI/6));
+  faCtx.moveTo(x2,y2); faCtx.lineTo(x2-h*Math.cos(a+Math.PI/6),y2-h*Math.sin(a+Math.PI/6));
+  faCtx.stroke();
+}
+
+async function saveAnnotation() {
+  const canvas = document.getElementById('frameCanvas');
+  const comment = document.getElementById('annoComment').value.trim();
+  const time = faHiddenVideo ? parseFloat(faHiddenVideo.currentTime.toFixed(2)) : 0;
+  const imageDataURL = canvas.toDataURL('image/jpeg', 0.82);
+  const anno = { id: Date.now(), time, imageDataURL, comment };
+  faAnnotations.push(anno);
+  faAnnotations.sort((a,b) => a.time - b.time);
+  // Save to Supabase
+  try {
+    const s = sessions.find(x => x.id === viewingId);
+    if (s) {
+      await dbUpsert({ ...s, frame_annotations: faAnnotations });
+      sessions = await dbAll();
+    }
+    document.getElementById('annoComment').value = '';
+    renderAnnotationList(); updateAnnoCount();
+    showToast('Annotation saved ✓');
+  } catch(e) { showToast('Save failed: ' + e.message, true); }
+}
+
+function renderAnnotationList() {
+  const list = document.getElementById('annotationList');
+  if (!faAnnotations.length) { list.innerHTML = `<div class="anno-empty">No annotations yet.<br>Draw on the frame and save.</div>`; return; }
+  list.innerHTML = faAnnotations.map((a,i) => `
+    <div class="anno-card" data-idx="${i}">
+      <div class="anno-thumb-wrap"><img class="anno-thumb" src="${a.imageDataURL}"><span class="anno-ts-badge">${a.time?.toFixed(2) ?? '?'}s</span></div>
+      ${a.comment ? `<div class="anno-body"><div class="anno-comment">${a.comment.replace(/\n/g,'<br>')}</div></div>` : ''}
+      <div class="anno-footer"><button class="anno-del-btn" data-idx="${i}">✕ Delete</button></div>
+    </div>`).join('');
+  list.querySelectorAll('.anno-card').forEach(c => c.addEventListener('click', e => {
+    if (e.target.classList.contains('anno-del-btn')) return;
+    const a = faAnnotations[+c.dataset.idx];
+    if (faHiddenVideo && a.time != null) { faHiddenVideo.currentTime = a.time; document.getElementById('scrubRange').value = a.time; }
+  }));
+  list.querySelectorAll('.anno-del-btn').forEach(btn => btn.addEventListener('click', async e => {
+    e.stopPropagation();
+    faAnnotations.splice(+btn.dataset.idx, 1);
+    try {
+      const s = sessions.find(x => x.id === viewingId);
+      if (s) { await dbUpsert({ ...s, frame_annotations: faAnnotations }); sessions = await dbAll(); }
+    } catch(e) {}
+    renderAnnotationList(); updateAnnoCount();
+  }));
+}
+
+function updateAnnoCount() { document.getElementById('annoCount').textContent = faAnnotations.length; }
+
+// ── Wire up events ──
+document.getElementById('googleSignIn').addEventListener('click', signInWithGoogle);
+document.getElementById('signOutBtn').addEventListener('click', signOut);
+document.getElementById('addBtn').addEventListener('click', openAdd);
+document.getElementById('closeAdd').addEventListener('click', closeAdd);
+document.getElementById('cancelBtn').addEventListener('click', closeAdd);
+document.getElementById('saveBtn').addEventListener('click', saveSession);
+document.getElementById('closeView').addEventListener('click', closeView);
+document.getElementById('deleteBtn').addEventListener('click', deleteSession);
+document.getElementById('editBtn').addEventListener('click', openEdit);
+document.getElementById('analyzeBtn').addEventListener('click', openFrameAnalysis);
+document.getElementById('closeFrameAnalysis').addEventListener('click', closeFrameAnalysis);
+document.querySelector('.chip[data-filter="all"]').addEventListener('click', () => {
+  currentFilter = 'all';
+  document.querySelectorAll('.chip').forEach(x => x.classList.remove('active'));
+  document.querySelector('.chip[data-filter="all"]').classList.add('active');
+  render();
+});
+document.getElementById('searchInput').addEventListener('input', e => { currentSearch = e.target.value.trim(); render(); });
+document.getElementById('enableCoach').addEventListener('change', e => document.getElementById('coachFields').classList.toggle('visible', e.target.checked));
+document.getElementById('enableMetrics').addEventListener('change', e => document.getElementById('metricsFields').classList.toggle('visible', e.target.checked));
+document.getElementById('addOverlay').addEventListener('click', e => { if (e.target === document.getElementById('addOverlay')) closeAdd(); });
+document.getElementById('viewOverlay').addEventListener('click', e => { if (e.target === document.getElementById('viewOverlay')) closeView(); });
+
+// Tool buttons
+['toolDraw','toolLine','toolArrow','toolRect','toolEllipse','toolText'].forEach(id => {
+  document.getElementById(id).addEventListener('click', () => {
+    document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    faTool = id.replace('tool','').toLowerCase();
+  });
+});
+document.querySelectorAll('.color-swatch').forEach(sw => sw.addEventListener('click', () => {
+  document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+  sw.classList.add('active'); faColor = sw.dataset.color;
+}));
+document.getElementById('brushSize').addEventListener('input', e => { faBrushSize = Math.max(1, +e.target.value || 3); });
+document.getElementById('clearCanvas').addEventListener('click', () => { if (faHiddenVideo) drawVideoFrame(); else { faCtx.clearRect(0,0,document.getElementById('frameCanvas').width,document.getElementById('frameCanvas').height); pushHistory(); } });
+document.getElementById('undoCanvas').addEventListener('click', undoDraw);
+document.getElementById('captureFrame').addEventListener('click', saveAnnotation);
+document.getElementById('saveAnnotation').addEventListener('click', saveAnnotation);
+document.getElementById('scrubRange').addEventListener('input', e => { if (faHiddenVideo) faHiddenVideo.currentTime = +e.target.value; });
+
+const FRAME = 1/30;
+document.getElementById('scrubBack1').addEventListener('click', () => { if (faHiddenVideo) faHiddenVideo.currentTime = Math.max(0, faHiddenVideo.currentTime - FRAME); });
+document.getElementById('scrubFwd1').addEventListener('click', () => { if (faHiddenVideo) faHiddenVideo.currentTime = Math.min(faHiddenVideo.duration, faHiddenVideo.currentTime + FRAME); });
+document.getElementById('scrubBack10').addEventListener('click', () => { if (faHiddenVideo) faHiddenVideo.currentTime = Math.max(0, faHiddenVideo.currentTime - FRAME*10); });
+document.getElementById('scrubFwd10').addEventListener('click', () => { if (faHiddenVideo) faHiddenVideo.currentTime = Math.min(faHiddenVideo.duration, faHiddenVideo.currentTime + FRAME*10); });
+
+const fc = document.getElementById('frameCanvas');
+fc.addEventListener('mousedown', canvasDown); fc.addEventListener('mousemove', canvasMove);
+fc.addEventListener('mouseup', canvasUp); fc.addEventListener('mouseleave', canvasUp);
+fc.addEventListener('touchstart', canvasDown, {passive:false}); fc.addEventListener('touchmove', canvasMove, {passive:false});
+fc.addEventListener('touchend', canvasUp);
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    if (document.getElementById('frameOverlay').classList.contains('open')) closeFrameAnalysis();
+    else if (document.getElementById('viewOverlay').classList.contains('open')) closeView();
+    else if (document.getElementById('addOverlay').classList.contains('open')) closeAdd();
+  }
+});
+
+// ── Init ──
+initAuth();
+</script>
+</body>
+</html>

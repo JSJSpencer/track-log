@@ -1,0 +1,17 @@
+name = "tracklog-upload"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+# R2 bucket binding — replace "tracklog-videos" with your actual bucket name
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "tracklog-videos"
+
+# Environment variables — set UPLOAD_SECRET and ALLOWED_ORIGIN
+# in the Cloudflare dashboard under Workers > tracklog-upload > Settings > Variables
+# DO NOT put secrets directly in this file if you commit it to a public repo.
+# 
+# Variables to set in dashboard:
+#   UPLOAD_SECRET     = any random secret string you choose
+#   ALLOWED_ORIGIN    = https://YOUR_USERNAME.github.io
+#   R2_PUBLIC_DOMAIN  = your R2 bucket's public domain (from R2 bucket settings)
