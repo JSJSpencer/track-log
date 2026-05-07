@@ -406,6 +406,14 @@
     <div class="stat"><div class="stat-num" id="statEvents">0</div><div class="stat-label">Event Types</div></div>
     <div class="stat"><div class="stat-num" id="statCoach">0</div><div class="stat-label">Coach Notes</div></div>
     <div class="stat"><div class="stat-num" id="statMetrics">0</div><div class="stat-label">With Metrics</div></div>
+    <div class="stat" style="margin-left:auto">
+      <div class="stat-num" id="statStorage" style="font-size:1.4rem">0 MB</div>
+      <div class="stat-label">R2 Storage</div>
+      <div style="margin-top:0.4rem;width:160px;height:4px;background:var(--border);border-radius:2px;overflow:hidden">
+        <div id="storageBar" style="height:100%;width:0%;background:var(--accent);border-radius:2px;transition:width 0.4s,background 0.4s"></div>
+      </div>
+      <div id="storageWarning" style="display:none;font-family:'Share Tech Mono',monospace;font-size:0.6rem;color:var(--accent2);text-transform:uppercase;letter-spacing:0.08em;margin-top:0.3rem"></div>
+    </div>
   </div>
   <div class="filter-row">
     <span class="filter-label">Filter:</span>
@@ -828,6 +836,43 @@ function updateStats() {
   document.getElementById('statEvents').textContent = new Set(sessions.map(s => s.event_type).filter(Boolean)).size;
   document.getElementById('statCoach').textContent = sessions.filter(s => s.coach_notes).length;
   document.getElementById('statMetrics').textContent = sessions.filter(s => s.metric_time || s.metric_hr || s.metric_dist || s.metric_rpe || s.metric_extra).length;
+  updateStorageMeter();
+}
+
+const R2_LIMIT = 10 * 1024 * 1024 * 1024; // 10GB in bytes
+const R2_WARN  =  8 * 1024 * 1024 * 1024; // 8GB warn
+const R2_BLOCK = 9.8 * 1024 * 1024 * 1024; // 9.8GB hard block
+
+function updateStorageMeter() {
+  const totalBytes = sessions.reduce((sum, s) => sum + (s.video_size || 0), 0);
+  const pct = Math.min((totalBytes / R2_LIMIT) * 100, 100);
+  const mb = totalBytes / 1024 / 1024;
+  const display = mb >= 1024 ? (mb / 1024).toFixed(2) + ' GB' : mb.toFixed(0) + ' MB';
+  document.getElementById('statStorage').textContent = display;
+  const bar = document.getElementById('storageBar');
+  const warn = document.getElementById('storageWarning');
+  bar.style.width = pct + '%';
+  if (totalBytes >= R2_BLOCK) {
+    bar.style.background = 'var(--accent2)';
+    warn.style.display = '';
+    warn.textContent = '⚠ Near limit — delete old videos';
+  } else if (totalBytes >= R2_WARN) {
+    bar.style.background = '#ffaa00';
+    warn.style.display = '';
+    warn.textContent = '⚠ 8GB used — approaching limit';
+  } else {
+    bar.style.background = 'var(--accent)';
+    warn.style.display = 'none';
+  }
+}
+
+function checkStorageBeforeUpload(fileSize) {
+  const totalBytes = sessions.reduce((sum, s) => sum + (s.video_size || 0), 0);
+  if (totalBytes + fileSize >= R2_BLOCK) {
+    showToast('Storage near limit — delete old videos to free space', true);
+    return false;
+  }
+  return true;
 }
 
 function updateFilters() {
@@ -880,6 +925,7 @@ async function saveSession() {
       session_date: document.getElementById('sessionDate').value || null,
       personal_notes: document.getElementById('personalNotes').value.trim(),
       video_url: videoUrl,
+      video_size: pendingUploadUrl ? (document.getElementById('videoFile').files[0]?.size || 0) : (editingId ? (sessions.find(s=>s.id===editingId)?.video_size || 0) : 0),
       coach_notes: document.getElementById('enableCoach').checked ? document.getElementById('coachNotes').value.trim() : null,
       metric_time: document.getElementById('enableMetrics').checked ? document.getElementById('metricTime').value || null : null,
       metric_hr: document.getElementById('enableMetrics').checked ? document.getElementById('metricHR').value || null : null,
@@ -1107,7 +1153,8 @@ async function uploadVideoToR2(file) {
     return null;
   }
 
-  // Show progress
+  // Check storage before uploading
+  if (!checkStorageBeforeUpload(file.size)) return null;
   document.getElementById('uploadZone').style.display = 'none';
   document.getElementById('uploadProgressWrap').style.display = '';
   setUploadProgress(5, 'Preparing upload...');
