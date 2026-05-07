@@ -626,10 +626,10 @@ const UPLOAD_SECRET     = 'tracklog-upload';
 
 const CONFIGURED = SUPABASE_URL !== 'YOUR_SUPABASE_URL' && SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY';
 
-let supabase, currentUser;
+let sbClient, currentUser;
 
 if (CONFIGURED) {
-  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 }
 
 // ── State ──
@@ -704,7 +704,7 @@ async function initAuth() {
     return;
   }
 
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data: { session } } = await sbClient.auth.getSession();
   if (session) {
     currentUser = session.user;
     showApp();
@@ -713,7 +713,7 @@ async function initAuth() {
     document.getElementById('loginScreen').classList.add('visible');
   }
 
-  supabase.auth.onAuthStateChange((_event, session) => {
+  sbClient.auth.onAuthStateChange((_event, session) => {
     if (session) { currentUser = session.user; showApp(); }
     else { currentUser = null; showLogin(); }
   });
@@ -721,7 +721,7 @@ async function initAuth() {
 
 async function signInWithGoogle() {
   if (!CONFIGURED) return;
-  const { error } = await supabase.auth.signInWithOAuth({
+  const { error } = await sbClient.auth.signInWithOAuth({
     provider: 'google',
     options: { redirectTo: window.location.href }
   });
@@ -729,7 +729,7 @@ async function signInWithGoogle() {
 }
 
 async function signOut() {
-  await supabase.auth.signOut();
+  await sbClient.auth.signOut();
 }
 
 function showApp() {
@@ -763,12 +763,12 @@ async function dbAll() {
 }
 
 async function dbUpsert(session) {
-  const { error } = await supabase.from('sessions').upsert(session);
+  const { error } = await sbClient.from('sessions').upsert(session);
   if (error) throw error;
 }
 
 async function dbDelete(id) {
-  const { error } = await supabase.from('sessions').delete().eq('id', id).eq('user_id', currentUser.id);
+  const { error } = await sbClient.from('sessions').delete().eq('id', id).eq('user_id', currentUser.id);
   if (error) throw error;
 }
 
