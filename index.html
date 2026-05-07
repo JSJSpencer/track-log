@@ -958,9 +958,31 @@ function closeView() { document.getElementById('viewOverlay').classList.remove('
 
 async function deleteSession() {
   if (!viewingId) return;
-  if (!confirm('Delete this session? Cannot be undone.')) return;
-  try { await dbDelete(viewingId); closeView(); await render(); showToast('Session deleted'); }
-  catch(e) { showToast('Delete failed: ' + e.message, true); }
+  if (!confirm('Delete this session? This will also delete the video from storage. Cannot be undone.')) return;
+  try {
+    const s = sessions.find(x => x.id === viewingId);
+    // Delete video from R2 if it was uploaded there
+    if (s?.video_url && s.video_url.includes('r2.dev')) {
+      const key = s.video_url.split('r2.dev/')[1];
+      if (key) {
+        try {
+          await fetch(WORKER_URL + '/upload', {
+            method: 'DELETE',
+            headers: {
+              'X-Upload-Secret': UPLOAD_SECRET,
+              'X-Delete-Key': key
+            }
+          });
+        } catch(e) {
+          console.warn('Could not delete video from R2:', e);
+        }
+      }
+    }
+    await dbDelete(viewingId);
+    closeView();
+    await render();
+    showToast('Session deleted');
+  } catch(e) { showToast('Delete failed: ' + e.message, true); }
 }
 
 function openEdit() {
@@ -1262,11 +1284,24 @@ async function saveAnnotation() {
   const canvas = document.getElementById('frameCanvas');
   const comment = document.getElementById('annoComment').value.trim();
   const time = faHiddenVideo ? parseFloat(faHiddenVideo.currentTime.toFixed(2)) : 0;
-  const imageDataURL = canvas.toDataURL('image/jpeg', 0.82);
+
+  let imageDataURL;
+  try {
+    imageDataURL = canvas.toDataURL('image/jpeg', 0.82);
+  } catch(e) {
+    showToast('Canvas blocked — check R2 CORS settings', true);
+    return;
+  }
+
+  if (!imageDataURL || imageDataURL === 'data:,') {
+    showToast('No frame captured — scrub to a frame first', true);
+    return;
+  }
+
   const anno = { id: Date.now(), time, imageDataURL, comment };
   faAnnotations.push(anno);
   faAnnotations.sort((a,b) => a.time - b.time);
-  // Save to Supabase
+
   try {
     const s = sessions.find(x => x.id === viewingId);
     if (s) {
