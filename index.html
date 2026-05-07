@@ -10,6 +10,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;600;700;900&family=Barlow:wght@300;400;500&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <!-- Supabase JS v2 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
   :root {
     --bg: #0a0a0a;
@@ -354,6 +356,36 @@
     .stat-num { font-size: 1.5rem; }
     .fa-sidebar { display: none; }
   }
+
+  /* ── TAGS INPUT ── */
+  .tags-input-wrap { display: flex; flex-wrap: wrap; gap: 0.4rem; padding: 0.5rem 0.6rem; background: var(--surface2); border: 1px solid var(--border); border-radius: 2px; cursor: text; transition: border-color 0.2s; min-height: 40px; align-items: center; }
+  .tags-input-wrap:focus-within { border-color: var(--accent); }
+  .tag-pill { display: flex; align-items: center; gap: 0.3rem; background: rgba(232,255,0,0.12); border: 1px solid rgba(232,255,0,0.3); color: var(--accent); font-family: 'Share Tech Mono', monospace; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.06em; padding: 0.2rem 0.5rem; border-radius: 2px; }
+  .tag-pill-remove { background: none; border: none; color: var(--accent); cursor: pointer; font-size: 0.75rem; line-height: 1; padding: 0; opacity: 0.7; }
+  .tag-pill-remove:hover { opacity: 1; }
+  .tags-text-input { background: none; border: none; outline: none; color: var(--text); font-family: 'Barlow', sans-serif; font-size: 0.85rem; min-width: 120px; flex: 1; }
+  .tag-suggestions { position: absolute; background: var(--surface); border: 1px solid var(--border); border-top: none; z-index: 50; max-height: 140px; overflow-y: auto; width: 100%; }
+  .tag-suggestion { padding: 0.5rem 0.75rem; font-family: 'Share Tech Mono', monospace; font-size: 0.7rem; text-transform: uppercase; color: var(--muted); cursor: pointer; transition: background 0.15s; }
+  .tag-suggestion:hover { background: var(--surface2); color: var(--accent); }
+
+  /* ── CHARTS MODAL ── */
+  .charts-modal { max-width: 900px; }
+  .chart-wrap { padding: 1.5rem; }
+  .chart-tabs { display: flex; gap: 0.5rem; padding: 1rem 1.5rem 0; border-bottom: 1px solid var(--border); }
+  .chart-tab { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 0.8rem; letter-spacing: 0.1em; text-transform: uppercase; padding: 0.5rem 1rem; border: none; background: none; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; margin-bottom: -1px; }
+  .chart-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .chart-empty { text-align: center; padding: 4rem 2rem; color: var(--muted); font-family: 'Share Tech Mono', monospace; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; }
+  canvas.metric-chart { width: 100% !important; }
+
+  /* ── SHARE MODAL ── */
+  .share-modal { max-width: 520px; }
+  .share-url-box { display: flex; gap: 0.5rem; align-items: center; background: var(--surface2); border: 1px solid var(--border); border-radius: 2px; padding: 0.6rem 0.75rem; }
+  .share-url-text { font-family: 'Share Tech Mono', monospace; font-size: 0.72rem; color: var(--accent); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .share-copy-btn { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; background: var(--accent); color: #000; border: none; padding: 0.35rem 0.75rem; border-radius: 2px; cursor: pointer; flex-shrink: 0; transition: background 0.15s; }
+  .share-copy-btn:hover { background: #d4e800; }
+  .share-note { font-family: 'Share Tech Mono', monospace; font-size: 0.65rem; color: var(--muted); line-height: 1.7; margin-top: 1rem; }
+  .share-preview { background: var(--surface2); border: 1px solid var(--border); border-radius: 2px; padding: 1rem; margin-top: 1rem; }
+  .share-preview-label { font-family: 'Share Tech Mono', monospace; font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 0.5rem; }
 </style>
 </head>
 <body>
@@ -396,6 +428,7 @@
       <span id="userName"></span>
     </div>
     <button class="btn btn-ghost" id="signOutBtn">Sign Out</button>
+    <button class="btn btn-ghost" id="chartsBtn">&#9650; Progress</button>
     <button class="btn btn-primary" id="addBtn">+ Log Session</button>
   </div>
 </header>
@@ -493,6 +526,15 @@
           <label>Personal Notes / Cues</label>
           <textarea id="personalNotes" placeholder="How did it feel? What were you working on? Any cues or takeaways..."></textarea>
         </div>
+        <div class="form-group full">
+          <label>Tags</label>
+          <div style="position:relative">
+            <div class="tags-input-wrap" id="tagsInputWrap">
+              <input type="text" class="tags-text-input" id="tagsTextInput" placeholder="Type tag + Enter (e.g. race, PR, indoor, outdoor...)">
+            </div>
+            <div class="tag-suggestions" id="tagSuggestions" style="display:none"></div>
+          </div>
+        </div>
       </div>
 
       <hr class="divider">
@@ -544,6 +586,7 @@
       </div>
       <div class="view-actions">
         <button class="frame-analysis-btn" id="analyzeBtn">⬡ Frame Analysis</button>
+        <button class="frame-analysis-btn" id="shareBtn" style="border-color:rgba(255,255,255,0.2);color:#ccc">&#8599; Share</button>
         <button class="btn btn-ghost" id="editBtn">Edit</button>
         <button class="btn btn-danger" id="deleteBtn">Delete</button>
       </div>
@@ -621,6 +664,67 @@
       </div>
     </div>
   </div>
+</div>
+
+
+<!-- CHARTS MODAL -->
+<div class="overlay" id="chartsOverlay">
+  <div class="modal charts-modal">
+    <div class="modal-header">
+      <span class="modal-title">&#9650; Progress Charts</span>
+      <button class="close-btn" id="closeCharts">&times;</button>
+    </div>
+    <div class="chart-tabs">
+      <button class="chart-tab active" data-metric="metric_time">Split Time</button>
+      <button class="chart-tab" data-metric="metric_hr">Heart Rate</button>
+      <button class="chart-tab" data-metric="metric_rpe">RPE</button>
+      <button class="chart-tab" data-metric="metric_dist">Distance</button>
+    </div>
+    <div class="chart-wrap">
+      <div id="chartFilterRow" style="margin-bottom:1rem;display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap">
+        <span style="font-family:'Share Tech Mono',monospace;font-size:0.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em">Event:</span>
+        <select id="chartEventFilter" style="font-size:0.8rem;padding:0.3rem 0.5rem;max-width:200px">
+          <option value="all">All Events</option>
+        </select>
+      </div>
+      <div id="chartContainer" style="position:relative;height:300px">
+        <canvas id="metricChart" class="metric-chart"></canvas>
+        <div class="chart-empty" id="chartEmpty" style="display:none">No metric data for this selection.<br>Log sessions with performance metrics to see charts.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SHARE MODAL -->
+<div class="overlay" id="shareOverlay">
+  <div class="modal share-modal">
+    <div class="modal-header">
+      <span class="modal-title">&#8599; Share Session</span>
+      <button class="close-btn" id="closeShare">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:0.85rem;color:#aaa;margin-bottom:1.25rem;line-height:1.6">Generate a read-only link to this session. Anyone with the link can view the notes and frame annotations — but cannot edit or access your other sessions.</p>
+      <div class="share-url-box">
+        <span class="share-url-text" id="shareUrlText">Generating link...</span>
+        <button class="share-copy-btn" id="shareCopyBtn">Copy</button>
+      </div>
+      <div class="share-note">
+        &#8226; The link includes session data encoded directly — no extra server needed.<br>
+        &#8226; Video playback requires the original R2 link to still be active.<br>
+        &#8226; To revoke access, delete the session.
+      </div>
+      <div class="share-preview">
+        <div class="share-preview-label">Preview — what the recipient sees</div>
+        <div id="sharePreviewContent" style="font-size:0.82rem;color:#ccc;line-height:1.6"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SHARED VIEW — shown when ?share= param is in URL -->
+<div id="sharedView" style="display:none;max-width:900px;margin:2rem auto;padding:1rem">
+  <div style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.5rem;letter-spacing:0.15em;text-transform:uppercase;margin-bottom:1.5rem">Track<span style="color:var(--accent)">Log</span> <span style="font-size:0.9rem;color:var(--muted);font-weight:400">— Shared Session</span></div>
+  <div id="sharedContent"></div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -796,7 +900,8 @@ async function render() {
     if (currentFilter !== 'all' && s.event_type !== currentFilter) return false;
     if (!q) return true;
     const annos = (s.frame_annotations || []).map(a => a.comment).join(' ');
-    return [s.event_type, s.title, s.personal_notes, s.coach_notes, s.metric_extra, annos]
+    const tagStr = (s.tags || []).join(' ');
+    return [s.event_type, s.title, s.personal_notes, s.coach_notes, s.metric_extra, annos, tagStr]
       .some(f => f && f.toLowerCase().includes(q));
   });
   const grid = document.getElementById('grid');
@@ -819,6 +924,7 @@ function cardHTML(s, q) {
   if (s.metric_time || s.metric_hr || s.metric_dist || s.metric_rpe || s.metric_extra) tags.push(`<span class="tag metrics">Metrics</span>`);
   if (s.frame_annotations?.length) tags.push(`<span class="tag" style="border-color:#e8ff0040;color:var(--accent)">⬡ ${s.frame_annotations.length} Frame${s.frame_annotations.length > 1 ? 's' : ''}</span>`);
   if (s.video_url) tags.push(`<span class="tag" style="border-color:#ffffff20;color:var(--muted)">▶ Video</span>`);
+  if (s.tags?.length) s.tags.forEach(t => tags.push(`<span class="tag-pill" style="font-size:0.58rem;padding:0.15rem 0.4rem">${t}</span>`));
   const notes = s.personal_notes || s.coach_notes || '';
   return `<div class="card" data-id="${s.id}">
     <div class="card-thumb">${buildThumbHTML(s)}</div>
@@ -907,6 +1013,8 @@ function clearForm() {
   document.getElementById('videoPreviewWrap').innerHTML = '';
   resetUploadZone();
   pendingUploadUrl = null;
+  currentTags = [];
+  renderTagPills();
 }
 
 function closeAdd() { document.getElementById('addOverlay').classList.remove('open'); }
@@ -932,6 +1040,7 @@ async function saveSession() {
       metric_dist: document.getElementById('enableMetrics').checked ? document.getElementById('metricDist').value || null : null,
       metric_rpe: document.getElementById('enableMetrics').checked ? document.getElementById('metricRPE').value || null : null,
       metric_extra: document.getElementById('enableMetrics').checked ? document.getElementById('metricExtra').value.trim() || null : null,
+      tags: [...currentTags],
     };
     if (editingId) {
       session.id = editingId;
@@ -1041,6 +1150,9 @@ async function openView(id) {
       </div>`).join('');
     html += `<div class="section-block"><div class="section-title" style="color:var(--accent)">⬡ Frame Annotations (${s.frame_annotations.length})</div><div style="display:flex;flex-direction:column;gap:1rem;margin-top:0.5rem">${annoHTML}</div></div>`;
   }
+  if (s.tags && s.tags.length) {
+    html += `<div class="section-block"><div class="section-title">Tags</div><div style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-top:0.25rem">${s.tags.map(t => `<span class="tag-pill">${t}</span>`).join('')}</div></div>`;
+  }
   if (!html) html = `<p style="color:var(--muted);font-size:0.85rem">No notes recorded for this session.</p>`;
   document.getElementById('viewSections').innerHTML = html;
   document.getElementById('viewOverlay').classList.add('open');
@@ -1097,6 +1209,8 @@ function openEdit() {
   document.getElementById('sessionTitle').value = s.title || '';
   document.getElementById('sessionDate').value = s.session_date || '';
   document.getElementById('personalNotes').value = s.personal_notes || '';
+  currentTags = s.tags ? [...s.tags] : [];
+  renderTagPills();
   if (s.video_url) {
     const info = getEmbedInfo(s.video_url);
     if (info?.type === 'direct') {
@@ -1534,8 +1648,284 @@ document.addEventListener('keydown', e => {
   }
 });
 
+// ── TAGS ──
+let currentTags = [];
+const PRESET_TAGS = ['race', 'practice', 'PR', 'indoor', 'outdoor', 'fatigued', 'fresh', 'wet', 'windy', 'time trial', 'workout', 'recovery'];
+
+function getAllUsedTags() {
+  const all = new Set(PRESET_TAGS);
+  sessions.forEach(s => (s.tags || []).forEach(t => all.add(t)));
+  return [...all];
+}
+
+function renderTagPills() {
+  const wrap = document.getElementById('tagsInputWrap');
+  // Remove existing pills
+  wrap.querySelectorAll('.tag-pill').forEach(p => p.remove());
+  currentTags.forEach((tag, i) => {
+    const pill = document.createElement('span');
+    pill.className = 'tag-pill';
+    pill.innerHTML = tag + '<button class="tag-pill-remove" data-idx="' + i + '">&times;</button>';
+    pill.querySelector('.tag-pill-remove').addEventListener('click', () => {
+      currentTags.splice(i, 1);
+      renderTagPills();
+    });
+    wrap.insertBefore(pill, document.getElementById('tagsTextInput'));
+  });
+}
+
+function addTag(tag) {
+  tag = tag.trim().toLowerCase();
+  if (!tag || currentTags.includes(tag)) return;
+  currentTags.push(tag);
+  renderTagPills();
+  document.getElementById('tagsTextInput').value = '';
+  document.getElementById('tagSuggestions').style.display = 'none';
+}
+
+document.getElementById('tagsTextInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter' || e.key === ',') {
+    e.preventDefault();
+    addTag(e.target.value);
+  } else if (e.key === 'Backspace' && !e.target.value && currentTags.length) {
+    currentTags.pop();
+    renderTagPills();
+  }
+});
+
+document.getElementById('tagsTextInput').addEventListener('input', e => {
+  const val = e.target.value.toLowerCase().trim();
+  const sugg = document.getElementById('tagSuggestions');
+  if (!val) { sugg.style.display = 'none'; return; }
+  const matches = getAllUsedTags().filter(t => t.toLowerCase().includes(val) && !currentTags.includes(t));
+  if (!matches.length) { sugg.style.display = 'none'; return; }
+  sugg.innerHTML = matches.slice(0,6).map(t => '<div class="tag-suggestion">' + t + '</div>').join('');
+  sugg.style.display = 'block';
+  sugg.querySelectorAll('.tag-suggestion').forEach(el => {
+    el.addEventListener('click', () => addTag(el.textContent));
+  });
+});
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('#tagsInputWrap') && !e.target.closest('#tagSuggestions')) {
+    document.getElementById('tagSuggestions').style.display = 'none';
+  }
+});
+
+document.getElementById('tagsInputWrap').addEventListener('click', () => {
+  document.getElementById('tagsTextInput').focus();
+});
+
+// ── CHARTS ──
+let metricChart = null;
+let activeMetric = 'metric_time';
+
+function openCharts() {
+  populateChartEventFilter();
+  renderChart();
+  document.getElementById('chartsOverlay').classList.add('open');
+}
+
+function closeCharts() {
+  document.getElementById('chartsOverlay').classList.remove('open');
+}
+
+function populateChartEventFilter() {
+  const sel = document.getElementById('chartEventFilter');
+  const events = [...new Set(sessions.map(s => s.event_type).filter(Boolean))].sort();
+  sel.innerHTML = '<option value="all">All Events</option>' + events.map(e => '<option value="' + e + '">' + e + '</option>').join('');
+}
+
+function renderChart() {
+  const metric = activeMetric;
+  const eventFilter = document.getElementById('chartEventFilter').value;
+  let data = sessions
+    .filter(s => s[metric] && s.session_date && (eventFilter === 'all' || s.event_type === eventFilter))
+    .sort((a, b) => a.session_date.localeCompare(b.session_date))
+    .map(s => ({ x: s.session_date, y: parseFloat(s[metric]), label: s.event_type || 'Session' }));
+
+  const empty = document.getElementById('chartEmpty');
+  const canvas = document.getElementById('metricChart');
+
+  if (!data.length) {
+    canvas.style.display = 'none';
+    empty.style.display = '';
+    return;
+  }
+  canvas.style.display = 'block';
+  empty.style.display = 'none';
+
+  const labels = { metric_time: 'Split Time (s)', metric_hr: 'Heart Rate (bpm)', metric_rpe: 'RPE', metric_dist: 'Distance (m)' };
+
+  if (metricChart) metricChart.destroy();
+  metricChart = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels: data.map(d => d.x),
+      datasets: [{
+        label: labels[metric] || metric,
+        data: data.map(d => d.y),
+        borderColor: '#e8ff00',
+        backgroundColor: 'rgba(232,255,0,0.08)',
+        borderWidth: 2,
+        pointBackgroundColor: '#e8ff00',
+        pointRadius: 5,
+        pointHoverRadius: 7,
+        tension: 0.3,
+        fill: true,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1a1a1a',
+          borderColor: '#2a2a2a',
+          borderWidth: 1,
+          titleColor: '#e8ff00',
+          bodyColor: '#ccc',
+          callbacks: {
+            title: items => data[items[0].dataIndex].x,
+            label: item => labels[metric] + ': ' + item.raw,
+            afterLabel: item => data[item.dataIndex].label,
+          }
+        }
+      },
+      scales: {
+        x: { ticks: { color: '#666', font: { family: 'Share Tech Mono' } }, grid: { color: '#1a1a1a' } },
+        y: { ticks: { color: '#666', font: { family: 'Share Tech Mono' } }, grid: { color: '#2a2a2a' } }
+      }
+    }
+  });
+}
+
+document.getElementById('chartsBtn').addEventListener('click', openCharts);
+document.getElementById('closeCharts').addEventListener('click', closeCharts);
+document.getElementById('chartsOverlay').addEventListener('click', e => { if (e.target === document.getElementById('chartsOverlay')) closeCharts(); });
+document.querySelectorAll('.chart-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.chart-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    activeMetric = tab.dataset.metric;
+    renderChart();
+  });
+});
+document.getElementById('chartEventFilter').addEventListener('change', renderChart);
+
+// ── SHARE ──
+function openShare() {
+  const s = sessions.find(x => x.id === viewingId);
+  if (!s) return;
+
+  // Encode session data as base64 JSON in URL hash
+  const shareData = {
+    event_type: s.event_type,
+    title: s.title,
+    session_date: s.session_date,
+    personal_notes: s.personal_notes,
+    coach_notes: s.coach_notes,
+    metric_time: s.metric_time,
+    metric_hr: s.metric_hr,
+    metric_dist: s.metric_dist,
+    metric_rpe: s.metric_rpe,
+    metric_extra: s.metric_extra,
+    video_url: s.video_url,
+    frame_annotations: s.frame_annotations || [],
+    tags: s.tags || [],
+  };
+
+  const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(shareData))));
+  const url = window.location.origin + window.location.pathname + '?share=' + encoded;
+
+  document.getElementById('shareUrlText').textContent = url;
+
+  // Preview
+  let preview = '';
+  if (s.event_type) preview += '<strong style="color:var(--accent)">' + s.event_type + '</strong>';
+  if (s.session_date) preview += ' &middot; ' + formatDate(s.session_date);
+  if (s.personal_notes) preview += '<br>' + s.personal_notes.substring(0, 120) + (s.personal_notes.length > 120 ? '...' : '');
+  if (s.frame_annotations && s.frame_annotations.length) preview += '<br><span style="color:var(--muted)">' + s.frame_annotations.length + ' frame annotation(s)</span>';
+  document.getElementById('sharePreviewContent').innerHTML = preview || 'No notes recorded.';
+
+  document.getElementById('shareOverlay').classList.add('open');
+}
+
+function closeShare() { document.getElementById('shareOverlay').classList.remove('open'); }
+
+document.getElementById('shareBtn').addEventListener('click', openShare);
+document.getElementById('closeShare').addEventListener('click', closeShare);
+document.getElementById('shareOverlay').addEventListener('click', e => { if (e.target === document.getElementById('shareOverlay')) closeShare(); });
+document.getElementById('shareCopyBtn').addEventListener('click', () => {
+  const url = document.getElementById('shareUrlText').textContent;
+  navigator.clipboard.writeText(url).then(() => showToast('Link copied ✓'));
+});
+
+// ── SHARED VIEW (read-only mode) ──
+function checkSharedView() {
+  const params = new URLSearchParams(window.location.search);
+  const shareParam = params.get('share');
+  if (!shareParam) return false;
+
+  try {
+    const data = JSON.parse(decodeURIComponent(escape(atob(shareParam))));
+    document.getElementById('loadingOverlay').classList.add('hidden');
+    document.getElementById('loginScreen').classList.remove('visible');
+    document.getElementById('appHeader').style.display = 'none';
+    document.getElementById('appMain').style.display = 'none';
+    document.getElementById('sharedView').style.display = 'block';
+
+    let html = '<div style="background:var(--surface);border:1px solid var(--border);border-radius:2px;overflow:hidden">';
+
+    if (data.video_url) {
+      html += '<div style="width:100%;aspect-ratio:16/9;background:#000">' + buildVideoEmbed(data.video_url, true) + '</div>';
+    }
+
+    html += '<div style="padding:1.25rem 1.5rem;border-bottom:1px solid var(--border)">';
+    html += '<div style="font-family:\'Barlow Condensed\',sans-serif;font-weight:900;font-size:1.8rem;color:var(--accent);text-transform:uppercase">' + (data.event_type || 'Session') + '</div>';
+    html += '<div style="font-family:\'Share Tech Mono\',monospace;font-size:0.7rem;color:var(--muted);margin-top:0.25rem">' + (data.session_date ? formatDate(data.session_date) : '') + (data.title ? ' · ' + data.title : '') + '</div>';
+    html += '</div><div style="padding:1.5rem;display:flex;flex-direction:column;gap:1.5rem">';
+
+    if (data.personal_notes) html += section('Personal Notes / Cues', data.personal_notes.replace(/\n/g,'<br>'));
+    if (data.coach_notes) html += section('Coach Feedback', data.coach_notes.replace(/\n/g,'<br>'));
+
+    const hasM = data.metric_time || data.metric_hr || data.metric_dist || data.metric_rpe || data.metric_extra;
+    if (hasM) {
+      let mg = '<div class="metrics-grid">';
+      if (data.metric_time) mg += metricItem('Time', data.metric_time + 's');
+      if (data.metric_hr) mg += metricItem('Heart Rate', data.metric_hr + ' bpm');
+      if (data.metric_dist) mg += metricItem('Distance', data.metric_dist + 'm');
+      if (data.metric_rpe) mg += metricItem('RPE', data.metric_rpe + '/10');
+      if (data.metric_extra) mg += metricItem('Additional', data.metric_extra);
+      mg += '</div>';
+      html += section('Performance Metrics', mg, false);
+    }
+
+    if (data.frame_annotations && data.frame_annotations.length) {
+      const annoHTML = data.frame_annotations.map(a =>
+        '<div style="display:flex;gap:1rem;align-items:flex-start;background:var(--surface2);border:1px solid var(--border);border-radius:2px;overflow:hidden"><img src="' + a.imageDataURL + '" style="width:180px;flex-shrink:0;object-fit:cover"><div style="padding:0.75rem;flex:1;min-width:0"><div style="font-family:\'Share Tech Mono\',monospace;font-size:0.65rem;color:var(--accent);margin-bottom:0.4rem">@ ' + (a.time != null ? a.time.toFixed(2) : '?') + 's</div><div style="font-size:0.85rem;color:#ccc;line-height:1.6">' + (a.comment ? a.comment.replace(/\n/g,'<br>') : '<span style="color:var(--muted)">No comment</span>') + '</div></div></div>'
+      ).join('');
+      html += '<div class="section-block"><div class="section-title" style="color:var(--accent)">⬡ Frame Annotations (' + data.frame_annotations.length + ')</div><div style="display:flex;flex-direction:column;gap:1rem;margin-top:0.5rem">' + annoHTML + '</div></div>';
+    }
+
+    if (data.tags && data.tags.length) {
+      html += '<div class="section-block"><div class="section-title">Tags</div><div style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-top:0.25rem">' + data.tags.map(t => '<span class="tag-pill">' + t + '</span>').join('') + '</div></div>';
+    }
+
+    html += '</div></div>';
+    document.getElementById('sharedContent').innerHTML = html;
+    return true;
+  } catch(e) {
+    document.getElementById('sharedView').style.display = 'block';
+    document.getElementById('sharedContent').innerHTML = '<p style="color:var(--accent2)">Invalid or expired share link.</p>';
+    document.getElementById('loadingOverlay').classList.add('hidden');
+    return true;
+  }
+}
+
 // ── Init ──
-initAuth();
+if (!checkSharedView()) initAuth();
 </script>
 </body>
 </html>
