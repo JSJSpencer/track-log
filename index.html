@@ -752,8 +752,8 @@ function showLogin() {
 
 // ── Supabase DB ──
 async function dbAll() {
-  if (!supabase || !currentUser) return [];
-  const { data, error } = await supabase
+  if (!sbClient || !currentUser) return [];
+  const { data, error } = await sbClient
     .from('sessions')
     .select('*')
     .eq('user_id', currentUser.id)
