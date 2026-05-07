@@ -936,9 +936,10 @@ async function initAuth() {
 
 async function signInWithGoogle() {
   if (!CONFIGURED) return;
+  const cleanUrl = window.location.origin + window.location.pathname;
   const { error } = await sbClient.auth.signInWithOAuth({
     provider: 'google',
-    options: { redirectTo: window.location.href }
+    options: { redirectTo: cleanUrl }
   });
   if (error) showToast('Sign-in error: ' + error.message, true);
 }
