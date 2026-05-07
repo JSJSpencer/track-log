@@ -620,8 +620,8 @@
 // ══════════════════════════════════════════
 const SUPABASE_URL      = 'https://kygvavlyriqcankzvrml.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt5Z3Zhdmx5cmlxY2Fua3p2cm1sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDUzNDEsImV4cCI6MjA5MzY4MTM0MX0.RBUo_rDyz_vtXS2JHJPKB6sx23aZL3yxo3zTdPGKS2s';
-const WORKER_URL        = 'https://tracklog-upload.js020904.workers.dev';   // e.g. https://tracklog-upload.yourname.workers.dev
-const UPLOAD_SECRET     = 'tracklog-upload'; // must match worker env var
+const WORKER_URL        = 'https://tracklog-upload.js020904.workers.dev';
+const UPLOAD_SECRET     = 'tracklog-upload';
 // ══════════════════════════════════════════
 
 const CONFIGURED = SUPABASE_URL !== 'YOUR_SUPABASE_URL' && SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY';
@@ -866,7 +866,6 @@ async function saveSession() {
   const btn = document.getElementById('saveBtn');
   btn.textContent = 'Saving...'; btn.disabled = true;
   try {
-    const session = {
     const videoUrl = pendingUploadUrl || document.getElementById('videoUrl').value.trim() || null;
     const session = {
       user_id: currentUser.id,
