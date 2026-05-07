@@ -470,7 +470,7 @@
     </div>
     <button class="btn btn-ghost" id="signOutBtn">Sign Out</button>
     <button class="btn btn-ghost" id="chartsBtn">&#9650; Progress</button>
-    <button class="btn btn-ghost" id="hevyBtn" style="display:none;border-color:rgba(255,107,53,0.4);color:#ff6b35">&#9679; Hevy</button>
+    <button class="btn btn-ghost" id="hevyBtn" style="border-color:rgba(255,107,53,0.3);color:rgba(255,107,53,0.6)">&#9679; Hevy</button>
     <button class="btn btn-primary" id="addBtn">+ Log Session</button>
   </div>
 </header>
@@ -1131,7 +1131,9 @@ async function saveSession() {
       session_date: document.getElementById('sessionDate').value || null,
       personal_notes: document.getElementById('personalNotes').value.trim(),
       video_url: videoUrl,
-      video_size: pendingUploadUrl ? (document.getElementById('videoFile').files[0]?.size || 0) : (editingId ? (sessions.find(s=>s.id===editingId)?.video_size || 0) : 0),
+      video_size: pendingUploadUrl
+        ? (document.getElementById('videoFile').files[0]?.size || 0)
+        : (sessions.find(s => s.id === editingId)?.video_size || null),
       coach_notes: document.getElementById('enableCoach').checked ? document.getElementById('coachNotes').value.trim() : null,
       metric_time: document.getElementById('enableMetrics').checked ? document.getElementById('metricTime').value || null : null,
       metric_hr: document.getElementById('enableMetrics').checked ? document.getElementById('metricHR').value || null : null,
@@ -1917,7 +1919,7 @@ function openShare() {
   const s = sessions.find(x => x.id === viewingId);
   if (!s) return;
 
-  // Encode session data as base64 JSON in URL hash
+  // Only encode text data — NO frame annotation images (they make URLs huge)
   const shareData = {
     event_type: s.event_type,
     title: s.title,
@@ -1930,8 +1932,13 @@ function openShare() {
     metric_rpe: s.metric_rpe,
     metric_extra: s.metric_extra,
     video_url: s.video_url,
-    frame_annotations: s.frame_annotations || [],
     tags: s.tags || [],
+    // Frame annotations: text comments only, no images
+    frame_annotations: (s.frame_annotations || []).map(a => ({
+      time: a.time,
+      comment: a.comment
+      // imageDataURL intentionally excluded
+    })),
   };
 
   const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(shareData))));
@@ -1944,7 +1951,7 @@ function openShare() {
   if (s.event_type) preview += '<strong style="color:var(--accent)">' + s.event_type + '</strong>';
   if (s.session_date) preview += ' &middot; ' + formatDate(s.session_date);
   if (s.personal_notes) preview += '<br>' + s.personal_notes.substring(0, 120) + (s.personal_notes.length > 120 ? '...' : '');
-  if (s.frame_annotations && s.frame_annotations.length) preview += '<br><span style="color:var(--muted)">' + s.frame_annotations.length + ' frame annotation(s)</span>';
+  if (s.frame_annotations && s.frame_annotations.length) preview += '<br><span style="color:var(--muted)">' + s.frame_annotations.length + ' frame annotation(s) — timestamps & comments included, drawings not shown</span>';
   document.getElementById('sharePreviewContent').innerHTML = preview || 'No notes recorded.';
 
   document.getElementById('shareOverlay').classList.add('open');
@@ -2002,9 +2009,12 @@ function checkSharedView() {
 
     if (data.frame_annotations && data.frame_annotations.length) {
       const annoHTML = data.frame_annotations.map(a =>
-        '<div style="display:flex;gap:1rem;align-items:flex-start;background:var(--surface2);border:1px solid var(--border);border-radius:2px;overflow:hidden"><img src="' + a.imageDataURL + '" style="width:180px;flex-shrink:0;object-fit:cover"><div style="padding:0.75rem;flex:1;min-width:0"><div style="font-family:\'Share Tech Mono\',monospace;font-size:0.65rem;color:var(--accent);margin-bottom:0.4rem">@ ' + (a.time != null ? a.time.toFixed(2) : '?') + 's</div><div style="font-size:0.85rem;color:#ccc;line-height:1.6">' + (a.comment ? a.comment.replace(/\n/g,'<br>') : '<span style="color:var(--muted)">No comment</span>') + '</div></div></div>'
+        '<div style="background:var(--surface2);border:1px solid var(--border);border-radius:2px;padding:0.75rem 1rem">' +
+        '<div style="font-family:\'Share Tech Mono\',monospace;font-size:0.65rem;color:var(--accent);margin-bottom:0.4rem">@ ' + (a.time != null ? Number(a.time).toFixed(2) : '?') + 's</div>' +
+        '<div style="font-size:0.85rem;color:#ccc;line-height:1.6">' + (a.comment ? a.comment.replace(/\n/g,'<br>') : '<span style="color:var(--muted)">No comment</span>') + '</div>' +
+        '</div>'
       ).join('');
-      html += '<div class="section-block"><div class="section-title" style="color:var(--accent)">⬡ Frame Annotations (' + data.frame_annotations.length + ')</div><div style="display:flex;flex-direction:column;gap:1rem;margin-top:0.5rem">' + annoHTML + '</div></div>';
+      html += '<div class="section-block"><div class="section-title" style="color:var(--accent)">&#11041; Frame Annotations (' + data.frame_annotations.length + ')</div><div style="font-family:\'Share Tech Mono\',monospace;font-size:0.6rem;color:var(--muted);margin:0.4rem 0 0.75rem">Frame drawings are only visible in TrackLog.</div><div style="display:flex;flex-direction:column;gap:0.75rem;margin-top:0.25rem">' + annoHTML + '</div></div>';
     }
 
     if (data.tags && data.tags.length) {
@@ -2030,20 +2040,24 @@ let hevyImportedIds = new Set();
 let hevyActiveTab = 'recent';
 
 function hevyInit() {
-  // Load saved key from localStorage
+  const btn = document.getElementById('hevyBtn');
   const saved = localStorage.getItem('tracklog_hevy_key');
   if (saved) {
     hevyKey = saved;
-    document.getElementById('hevyBtn').style.display = '';
+    btn.style.borderColor = 'rgba(255,107,53,0.4)';
+    btn.style.color = '#ff6b35';
     return true;
   }
-  // If HEVY_API_KEY is hardcoded in config, use it
   if (HEVY_API_KEY) {
     hevyKey = HEVY_API_KEY;
     localStorage.setItem('tracklog_hevy_key', hevyKey);
-    document.getElementById('hevyBtn').style.display = '';
+    btn.style.borderColor = 'rgba(255,107,53,0.4)';
+    btn.style.color = '#ff6b35';
     return true;
   }
+  // Not connected — show dimmed
+  btn.style.borderColor = 'rgba(255,107,53,0.2)';
+  btn.style.color = 'rgba(255,107,53,0.4)';
   return false;
 }
 
@@ -2085,7 +2099,9 @@ async function hevyConnect() {
     if (!res.ok) { showHevyStatus('Connection error: HTTP ' + res.status, 'error'); return; }
     hevyKey = key;
     localStorage.setItem('tracklog_hevy_key', key);
-    document.getElementById('hevyBtn').style.display = '';
+    const hBtn = document.getElementById('hevyBtn');
+    hBtn.style.borderColor = 'rgba(255,107,53,0.4)';
+    hBtn.style.color = '#ff6b35';
     showHevyConnected();
     await hevySyncWorkouts();
     showToast('Hevy connected ✓');
@@ -2107,7 +2123,9 @@ function hevyDisconnect() {
   hevyKey = null;
   localStorage.removeItem('tracklog_hevy_key');
   hevyWorkouts = [];
-  document.getElementById('hevyBtn').style.display = 'none';
+  const hBtn = document.getElementById('hevyBtn');
+  hBtn.style.borderColor = 'rgba(255,107,53,0.2)';
+  hBtn.style.color = 'rgba(255,107,53,0.4)';
   document.getElementById('hevyConnectSection').style.display = '';
   document.getElementById('hevyConnectedSection').style.display = 'none';
   document.getElementById('hevyApiKeyInput').value = '';
