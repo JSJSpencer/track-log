@@ -24,7 +24,7 @@ export default {
     const corsHeaders = {
       'Access-Control-Allow-Origin': allowedOrigin,
       'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, X-Upload-Secret, X-File-Name, X-File-Type',
+      'Access-Control-Allow-Headers': 'Content-Type, X-Upload-Secret, X-File-Name, X-File-Type, X-User-Id',
     };
 
     // Handle preflight
