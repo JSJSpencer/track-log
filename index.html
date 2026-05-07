@@ -312,8 +312,8 @@
   .new-annotation textarea { min-height: 70px; font-size: 0.82rem; resize: none; }
   .anno-form-label { font-family: 'Share Tech Mono', monospace; font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
   .anno-timestamp { font-family: 'Share Tech Mono', monospace; font-size: 0.65rem; color: var(--accent); padding: 0.25rem 0; }
-  .annotation-list { flex: 1; overflow-y: auto; padding: 0.75rem; display: flex; flex-direction: column; gap: 0.75rem; }
-  .anno-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 2px; overflow: hidden; cursor: pointer; transition: border-color 0.15s; }
+  .annotation-list { flex: 1; overflow-y: auto; padding: 0.75rem; display: flex; flex-direction: column; gap: 0.75rem; min-height: 0; }
+  .anno-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 2px; overflow: hidden; cursor: pointer; transition: border-color 0.15s; flex-shrink: 0; }
   .anno-card:hover { border-color: var(--accent); }
   .anno-thumb-wrap { position: relative; aspect-ratio: 16/9; overflow: hidden; background: #000; }
   .anno-thumb { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -321,8 +321,8 @@
   .anno-body { padding: 0.6rem 0.75rem; }
   .anno-comment { font-size: 0.8rem; line-height: 1.5; color: #ccc; }
   .anno-footer { display: flex; justify-content: flex-end; padding: 0.4rem 0.75rem; border-top: 1px solid var(--border); }
-  .anno-del-btn { font-family: 'Share Tech Mono', monospace; font-size: 0.6rem; text-transform: uppercase; background: none; border: none; color: var(--muted2); cursor: pointer; transition: color 0.15s; }
-  .anno-del-btn:hover { color: var(--accent2); }
+  .anno-del-btn { font-family: 'Share Tech Mono', monospace; font-size: 0.6rem; text-transform: uppercase; background: none; border: 1px solid #ff4d0040; color: var(--accent2); cursor: pointer; transition: all 0.15s; padding: 0.2rem 0.5rem; border-radius: 2px; }
+  .anno-del-btn:hover { background: #ff4d0015; }
   .anno-empty { text-align: center; padding: 2rem 1rem; color: var(--muted); font-size: 0.8rem; line-height: 1.6; }
 
   /* ── TOAST ── */
