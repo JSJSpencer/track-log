@@ -9,7 +9,7 @@
  * 
  * Required environment variables (set in Cloudflare dashboard or wrangler.toml):
  *   UPLOAD_SECRET   — a random secret string you choose (e.g. a UUID)
- *   ALLOWED_ORIGIN  — your GitHub Pages URL, e.g. https://yourname.github.io
+ *   ALLOWED_ORIGIN  — your GitHub Pages URL, e.g. https://yourname.github.io 
  *
  * Required R2 binding (set in wrangler.toml):
  *   BUCKET          — your R2 bucket binding name
