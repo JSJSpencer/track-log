@@ -684,6 +684,9 @@ function buildVideoEmbed(url, forView) {
 }
 
 function buildThumbHTML(s) {
+  if (s.thumbnail) {
+    return `<img src="${s.thumbnail}" alt="thumb" style="width:100%;height:100%;object-fit:cover"><div class="play-icon">▶</div>`;
+  }
   if (s.video_url) {
     const info = getEmbedInfo(s.video_url);
     if (info?.type === 'youtube') {
@@ -897,6 +900,53 @@ async function saveSession() {
   }
 }
 
+// ── Thumbnail generation ──
+async function generateThumbnail(session) {
+  if (!session.video_url) return;
+  const info = getEmbedInfo(session.video_url);
+  if (info?.type !== 'direct') return;
+  if (session.thumbnail) return; // already have one
+
+  return new Promise(resolve => {
+    const vid = document.createElement('video');
+    vid.crossOrigin = 'anonymous';
+    vid.preload = 'metadata';
+    vid.style.display = 'none';
+    vid.muted = true;
+    document.body.appendChild(vid);
+
+    vid.addEventListener('seeked', async () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = 640;
+        canvas.height = 360;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(vid, 0, 0, canvas.width, canvas.height);
+        const thumbnail = canvas.toDataURL('image/jpeg', 0.7);
+        // Save thumbnail to session
+        session.thumbnail = thumbnail;
+        await dbUpsert(session);
+        sessions = await dbAll();
+        // Update card in grid without full re-render
+        const card = document.querySelector(`.card[data-id="${session.id}"] .card-thumb`);
+        if (card) card.innerHTML = buildThumbHTML(session);
+      } catch(e) {
+        console.warn('Thumbnail generation failed:', e);
+      } finally {
+        vid.src = '';
+        vid.remove();
+        resolve();
+      }
+    }, { once: true });
+
+    vid.addEventListener('error', () => { vid.remove(); resolve(); });
+    vid.src = session.video_url;
+    vid.addEventListener('loadedmetadata', () => {
+      vid.currentTime = Math.min(1, vid.duration * 0.1);
+    }, { once: true });
+  });
+}
+
 // ── View ──
 async function openView(id) {
   viewingId = id;
@@ -945,6 +995,9 @@ async function openView(id) {
   if (!html) html = `<p style="color:var(--muted);font-size:0.85rem">No notes recorded for this session.</p>`;
   document.getElementById('viewSections').innerHTML = html;
   document.getElementById('viewOverlay').classList.add('open');
+
+  // Generate thumbnail in background if not already stored
+  generateThumbnail(s);
 }
 
 function section(title, content, isText=true) {
@@ -1145,7 +1198,9 @@ let faSnapshot = null;
 let faHistory = [];
 let faAnnotations = [];
 
-function openFrameAnalysis() {
+async function openFrameAnalysis() {
+  // Reload sessions to get latest annotations
+  sessions = await dbAll();
   const s = sessions.find(x => x.id === viewingId);
   if (!s) return;
   faAnnotations = s.frame_annotations ? [...s.frame_annotations] : [];
@@ -1315,28 +1370,54 @@ async function saveAnnotation() {
 }
 
 function renderAnnotationList() {
+function renderAnnotationList() {
   const list = document.getElementById('annotationList');
-  if (!faAnnotations.length) { list.innerHTML = `<div class="anno-empty">No annotations yet.<br>Draw on the frame and save.</div>`; return; }
-  list.innerHTML = faAnnotations.map((a,i) => `
+  if (!faAnnotations.length) {
+    list.innerHTML = `<div class="anno-empty">No annotations yet.<br>Draw on the frame and save.</div>`;
+    return;
+  }
+  list.innerHTML = faAnnotations.map((a, i) => `
     <div class="anno-card" data-idx="${i}">
-      <div class="anno-thumb-wrap"><img class="anno-thumb" src="${a.imageDataURL}"><span class="anno-ts-badge">${a.time?.toFixed(2) ?? '?'}s</span></div>
-      ${a.comment ? `<div class="anno-body"><div class="anno-comment">${a.comment.replace(/\n/g,'<br>')}</div></div>` : ''}
-      <div class="anno-footer"><button class="anno-del-btn" data-idx="${i}">✕ Delete</button></div>
+      <div class="anno-thumb-wrap">
+        <img class="anno-thumb" src="${a.imageDataURL}" alt="frame">
+        <span class="anno-ts-badge">${a.time?.toFixed(2) ?? '?'}s</span>
+      </div>
+      <div class="anno-body">
+        <div class="anno-comment">${a.comment ? a.comment.replace(/\n/g,'<br>') : '<span style="color:var(--muted2);font-style:italic">No comment</span>'}</div>
+      </div>
+      <div class="anno-footer">
+        <button class="anno-del-btn" data-idx="${i}">✕ Delete</button>
+      </div>
     </div>`).join('');
-  list.querySelectorAll('.anno-card').forEach(c => c.addEventListener('click', e => {
-    if (e.target.classList.contains('anno-del-btn')) return;
-    const a = faAnnotations[+c.dataset.idx];
-    if (faHiddenVideo && a.time != null) { faHiddenVideo.currentTime = a.time; document.getElementById('scrubRange').value = a.time; }
-  }));
-  list.querySelectorAll('.anno-del-btn').forEach(btn => btn.addEventListener('click', async e => {
-    e.stopPropagation();
-    faAnnotations.splice(+btn.dataset.idx, 1);
-    try {
-      const s = sessions.find(x => x.id === viewingId);
-      if (s) { await dbUpsert({ ...s, frame_annotations: faAnnotations }); sessions = await dbAll(); }
-    } catch(e) {}
-    renderAnnotationList(); updateAnnoCount();
-  }));
+
+  list.querySelectorAll('.anno-card').forEach(c => {
+    c.addEventListener('click', e => {
+      if (e.target.classList.contains('anno-del-btn')) return;
+      const a = faAnnotations[+c.dataset.idx];
+      if (faHiddenVideo && a.time != null) {
+        faHiddenVideo.currentTime = a.time;
+        document.getElementById('scrubRange').value = a.time;
+      }
+    });
+  });
+
+  list.querySelectorAll('.anno-del-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const idx = +btn.dataset.idx;
+      faAnnotations.splice(idx, 1);
+      try {
+        const s = sessions.find(x => x.id === viewingId);
+        if (s) {
+          s.frame_annotations = faAnnotations;
+          await dbUpsert(s);
+          sessions = await dbAll();
+        }
+      } catch(err) { console.warn('Could not save after delete:', err); }
+      renderAnnotationList();
+      updateAnnoCount();
+    });
+  });
 }
 
 function updateAnnoCount() { document.getElementById('annoCount').textContent = faAnnotations.length; }
